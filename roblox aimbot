@@ -1,0 +1,1294 @@
+-- [[ LOST HUB PREMIER: PROJECT-A UI VERSION ]] --
+-- [[ Aimbot + ESP + Health Display ]] --
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Load Project-a UI
+local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Zanexywex/Project-a/refs/heads/main/Project-a-libary.lua"))()
+UI:Notify("LOST HUB", "Loading...", 3)
+
+-- // VARIABLES
+_G.AimEnabled = false
+_G.AimPart = "Head"
+_G.FOV = 42
+_G.ESPEnabled = false
+_G.WallCheck = false
+_G.Smoothness = 5
+_G.AimKeybind = Enum.UserInputType.MouseButton2 -- Default: Right Click
+_G.PriorityMode = "FOV"
+_G.HealthESP = false
+_G.ESPColor = Color3.fromRGB(255, 0, 0)
+
+-- Movement Variables
+_G.SpeedEnabled = false
+_G.WalkSpeed = 16
+_G.JumpEnabled = false
+_G.JumpPower = 50
+_G.FlyEnabled = false
+_G.FlySpeed = 50
+_G.NoClipEnabled = false
+_G.InfiniteJumpEnabled = false
+_G.AutoSprintEnabled = false
+
+-- Visual Variables
+_G.FOVChangerEnabled = false
+_G.CameraFOV = 70
+_G.FullbrightEnabled = false
+_G.DistanceESP = false
+_G.TracerESP = false
+_G.BoxESP = false
+
+-- Misc Variables
+_G.AntiAFK = false
+_G.TargetInfo = false
+_G.Crosshair = false
+_G.SelectedPlayer = nil
+_G.SpectateEnabled = false
+
+-- [[ CREATE UI PANELS ]] --
+local CombatPanel = UI:CreatePanel("Combat")
+local VisualsPanel = UI:CreatePanel("Visuals")
+local MovementPanel = UI:CreatePanel("Movement")
+local PlayerPanel = UI:CreatePanel("Player")
+local MiscPanel = UI:CreatePanel("Misc")
+local SettingsPanel = UI:CreatePanel("Settings")
+
+-- [[ COMBAT PANEL ]] --
+do
+    -- Aimbot Toggle
+    CombatPanel.Left:CreateSwitchToggle("Enable Aimbot", false, function(v)
+        _G.AimEnabled = v
+        if v then
+            UI:Notify("Aimbot", "ACTIVE", 2)
+        else
+            UI:Notify("Aimbot", "Disabled", 2)
+        end
+    end):AddKeybind("Toggle Aimbot", Enum.KeyCode.LeftAlt, function(state)
+        _G.AimEnabled = state
+    end)
+    
+    -- Aim Key Dropdown (Support Mouse Buttons)
+    CombatPanel.Left:Craetedropdown("Aim Lock Key", {
+        "Right Click (MB2)",
+        "Left Click (MB1)", 
+        "Middle Click (MB3)",
+        "E Key",
+        "Q Key",
+        "X Key",
+        "C Key",
+        "V Key"
+    }, "Right Click (MB2)", function(v)
+        if v == "Right Click (MB2)" then
+            _G.AimKeybind = Enum.UserInputType.MouseButton2
+        elseif v == "Left Click (MB1)" then
+            _G.AimKeybind = Enum.UserInputType.MouseButton1
+        elseif v == "Middle Click (MB3)" then
+            _G.AimKeybind = Enum.UserInputType.MouseButton3
+        elseif v == "E Key" then
+            _G.AimKeybind = Enum.KeyCode.E
+        elseif v == "Q Key" then
+            _G.AimKeybind = Enum.KeyCode.Q
+        elseif v == "X Key" then
+            _G.AimKeybind = Enum.KeyCode.X
+        elseif v == "C Key" then
+            _G.AimKeybind = Enum.KeyCode.C
+        elseif v == "V Key" then
+            _G.AimKeybind = Enum.KeyCode.V
+        end
+        UI:Notify("Aim Key", "Set to: " .. v, 2)
+    end)
+    
+    -- Target Part Dropdown
+    CombatPanel.Left:Craetedropdown("Target Part", {"Head", "HumanoidRootPart", "UpperTorso"}, "Head", function(v)
+        _G.AimPart = v
+        UI:Notify("Target", v, 2)
+    end)
+    
+    -- Priority Mode
+    CombatPanel.Left:Craetedropdown("Target Priority", {"FOV (Crosshair)", "Distance (Closest)"}, "FOV (Crosshair)", function(v)
+        if v == "FOV (Crosshair)" then
+            _G.PriorityMode = "FOV"
+        else
+            _G.PriorityMode = "Distance"
+        end
+        UI:Notify("Priority", v, 2)
+    end)
+    
+    -- FOV Slider
+    CombatPanel.Right:CreateSlider("FOV Radius", 10, 500, 42, function(v)
+        _G.FOV = v
+    end)
+    
+    -- Smoothness Slider
+    CombatPanel.Right:CreateSlider("Smoothness", 0.5, 15, 5, function(v)
+        _G.Smoothness = v
+    end)
+    
+    -- Wallcheck Toggle
+    CombatPanel.Center:CreateSwitchToggle("Wall Check", false, function(v)
+        _G.WallCheck = v
+    end)
+end
+
+-- [[ VISUALS PANEL ]] --
+do
+    -- ESP Toggle
+    VisualsPanel.Left:CreateSwitchToggle("Enable ESP", false, function(v)
+        _G.ESPEnabled = v
+        if v then
+            UI:Notify("ESP", "ACTIVE", 2)
+        else
+            UI:Notify("ESP", "Disabled", 2)
+        end
+    end):AddKeybind("Toggle ESP", Enum.KeyCode.F2, function(state)
+        _G.ESPEnabled = state
+    end)
+    
+    -- Health ESP Toggle
+    VisualsPanel.Left:CreateSwitchToggle("Show Health", false, function(v)
+        _G.HealthESP = v
+    end)
+    
+    -- Distance ESP
+    VisualsPanel.Left:CreateSwitchToggle("Show Distance", false, function(v)
+        _G.DistanceESP = v
+    end)
+    
+    -- Tracer ESP
+    VisualsPanel.Left:CreateSwitchToggle("Tracers", false, function(v)
+        _G.TracerESP = v
+    end)
+    
+    -- Box ESP
+    VisualsPanel.Left:CreateSwitchToggle("Box ESP", false, function(v)
+        _G.BoxESP = v
+    end)
+    
+    -- ESP Color Picker
+    VisualsPanel.Right:CreateColorPicker("ESP Color", 255, 0, 0, function(color)
+        _G.ESPColor = color
+    end)
+    
+    -- FOV Changer
+    VisualsPanel.Right:CreateSwitchToggle("FOV Changer", false, function(v)
+        _G.FOVChangerEnabled = v
+        if not v then
+            Camera.FieldOfView = 70 -- Reset to default
+        end
+    end):AddSlider("Camera FOV", 30, 120, 70, function(v)
+        _G.CameraFOV = v
+    end)
+    
+    -- Fullbright
+    VisualsPanel.Right:CreateSwitchToggle("Fullbright", false, function(v)
+        _G.FullbrightEnabled = v
+        if v then
+            UI:Notify("Fullbright", "No more darkness!", 2)
+        end
+    end)
+    
+    -- Crosshair
+    VisualsPanel.Center:CreateSwitchToggle("Custom Crosshair", false, function(v)
+        _G.Crosshair = v
+    end)
+end
+
+-- [[ MOVEMENT PANEL ]] --
+do
+    -- Speed Toggle + Slider
+    MovementPanel.Left:CreateSwitchToggle("Speed Boost", false, function(v)
+        _G.SpeedEnabled = v
+        if v then
+            UI:Notify("Speed", "ACTIVE", 2)
+        else
+            UI:Notify("Speed", "Disabled", 2)
+            -- Reset speed
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            end
+        end
+    end):AddSlider("Walk Speed", 16, 500, 16, function(v)
+        _G.WalkSpeed = v
+    end)
+    
+    -- Jump Power Toggle + Slider
+    MovementPanel.Left:CreateSwitchToggle("Jump Boost", false, function(v)
+        _G.JumpEnabled = v
+        if v then
+            UI:Notify("Jump", "ACTIVE", 2)
+        else
+            UI:Notify("Jump", "Disabled", 2)
+            -- Reset jump
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.JumpPower = 50
+            end
+        end
+    end):AddSlider("Jump Power", 50, 500, 50, function(v)
+        _G.JumpPower = v
+    end)
+    
+    -- Infinite Jump
+    MovementPanel.Left:CreateSwitchToggle("Infinite Jump", false, function(v)
+        _G.InfiniteJumpEnabled = v
+        if v then
+            UI:Notify("Infinite Jump", "Jump forever!", 2)
+        end
+    end)
+    
+    -- Auto Sprint
+    MovementPanel.Left:CreateSwitchToggle("Auto Sprint", false, function(v)
+        _G.AutoSprintEnabled = v
+    end)
+    
+    -- Fly Toggle + Slider
+    MovementPanel.Right:CreateSwitchToggle("Fly Mode", false, function(v)
+        _G.FlyEnabled = v
+        if v then
+            UI:Notify("Fly", "ACTIVE - Use WASD + Space/Shift", 3)
+        else
+            UI:Notify("Fly", "Disabled", 2)
+        end
+    end):AddKeybind("Toggle Fly", Enum.KeyCode.F, function(state)
+        _G.FlyEnabled = state
+    end):AddSlider("Fly Speed", 10, 300, 50, function(v)
+        _G.FlySpeed = v
+    end)
+    
+    -- NoClip
+    MovementPanel.Right:CreateSwitchToggle("No Clip", false, function(v)
+        _G.NoClipEnabled = v
+        if v then
+            UI:Notify("NoClip", "Walk through walls!", 2)
+        else
+            UI:Notify("NoClip", "Disabled", 2)
+        end
+    end):AddKeybind("Toggle NoClip", Enum.KeyCode.N, function(state)
+        _G.NoClipEnabled = state
+    end)
+    
+    -- Info
+    MovementPanel.Center:CreateButton("Reset All Movement", function()
+        _G.SpeedEnabled = false
+        _G.JumpEnabled = false
+        _G.FlyEnabled = false
+        _G.NoClipEnabled = false
+        _G.InfiniteJumpEnabled = false
+        _G.AutoSprintEnabled = false
+        
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            LocalPlayer.Character.Humanoid.JumpPower = 50
+        end
+        
+        UI:Notify("Reset", "All movement reset to normal", 2)
+    end)
+end
+
+-- [[ MISC PANEL ]] --
+do
+    -- Anti AFK
+    MiscPanel.Left:CreateSwitchToggle("Anti AFK", false, function(v)
+        _G.AntiAFK = v
+        if v then
+            UI:Notify("Anti AFK", "You won't get kicked!", 2)
+        end
+    end)
+    
+    -- Target Info
+    MiscPanel.Left:CreateSwitchToggle("Target Info", false, function(v)
+        _G.TargetInfo = v
+    end)
+    
+    -- Remove Fog
+    MiscPanel.Left:CreateButton("Remove Fog", function()
+        game.Lighting.FogEnd = 100000
+        UI:Notify("Fog", "Removed!", 2)
+    end)
+    
+    -- Day Time
+    MiscPanel.Left:CreateButton("Always Day", function()
+        game.Lighting.ClockTime = 12
+        game.Lighting.TimeOfDay = "12:00:00"
+        UI:Notify("Time", "Set to Day", 2)
+    end)
+    
+    -- Night Time
+    MiscPanel.Left:CreateButton("Always Night", function()
+        game.Lighting.ClockTime = 0
+        game.Lighting.TimeOfDay = "00:00:00"
+        UI:Notify("Time", "Set to Night", 2)
+    end)
+    
+    -- Player Info
+    MiscPanel.Right:CreateButton("Copy Player Name", function()
+        setclipboard(LocalPlayer.Name)
+        UI:Notify("Copied", "Your name: " .. LocalPlayer.Name, 2)
+    end)
+    
+    MiscPanel.Right:CreateButton("Copy Player ID", function()
+        setclipboard(tostring(LocalPlayer.UserId))
+        UI:Notify("Copied", "Your ID: " .. LocalPlayer.UserId, 2)
+    end)
+    
+    -- Rejoin
+    MiscPanel.Right:CreateButton("Rejoin Server", function()
+        game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+    end)
+    
+    -- Server Hop
+    MiscPanel.Right:CreateButton("Server Hop", function()
+        local PlaceId = game.PlaceId
+        local AllServers = {}
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+        end)
+        
+        if success and data and data.data then
+            for _, server in pairs(data.data) do
+                if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                    game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
+                    return
+                end
+            end
+        end
+        
+        UI:Notify("Server Hop", "No available servers", 2)
+    end)
+    
+    -- FPS Counter
+    MiscPanel.Center:CreateButton("Show FPS", function()
+        local FpsLabel = Instance.new("ScreenGui")
+        local Label = Instance.new("TextLabel")
+        
+        FpsLabel.Name = "FpsLabel"
+        FpsLabel.Parent = game.CoreGui
+        FpsLabel.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        
+        Label.Parent = FpsLabel
+        Label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        Label.BackgroundTransparency = 0.5
+        Label.Position = UDim2.new(0, 10, 0, 10)
+        Label.Size = UDim2.new(0, 100, 0, 30)
+        Label.Font = Enum.Font.GothamBold
+        Label.Text = "FPS: 0"
+        Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Label.TextSize = 18
+        
+        local RunService = game:GetService("RunService")
+        RunService.RenderStepped:Connect(function(deltaTime)
+            local fps = math.floor(1 / deltaTime)
+            Label.Text = "FPS: " .. fps
+        end)
+        
+        UI:Notify("FPS", "Counter enabled", 2)
+    end)
+end
+
+-- [[ PLAYER PANEL ]] --
+do
+    -- Get all players list
+    local function GetPlayerList()
+        local playerList = {}
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                table.insert(playerList, player.Name)
+            end
+        end
+        return playerList
+    end
+    
+    -- Player Selector
+    local playerDropdown = PlayerPanel.Left:Craetedropdown("Select Player", GetPlayerList(), GetPlayerList()[1] or "None", function(v)
+        _G.SelectedPlayer = Players:FindFirstChild(v)
+        if _G.SelectedPlayer then
+            UI:Notify("Selected", v, 2)
+        end
+    end)
+    
+    -- Refresh Player List
+    PlayerPanel.Left:CreateButton("Refresh Players", function()
+        playerDropdown:Refresh()
+        UI:Notify("Refreshed", "Player list updated", 2)
+    end)
+    
+    -- Teleport to Player
+    PlayerPanel.Left:CreateButton("Teleport To Player", function()
+        if _G.SelectedPlayer and _G.SelectedPlayer.Character and _G.SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = _G.SelectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                UI:Notify("Teleported", "To " .. _G.SelectedPlayer.Name, 2)
+            end
+        else
+            UI:Notify("Error", "Player not found or no character", 2)
+        end
+    end)
+    
+    -- Teleport Player to You
+    PlayerPanel.Left:CreateButton("Bring Player To You", function()
+        if _G.SelectedPlayer and _G.SelectedPlayer.Character and _G.SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                _G.SelectedPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+                UI:Notify("Brought", _G.SelectedPlayer.Name .. " to you", 2)
+            end
+        else
+            UI:Notify("Error", "Player not found or no character", 2)
+        end
+    end)
+    
+    -- Spectate Toggle
+    PlayerPanel.Right:CreateSwitchToggle("Spectate Player", false, function(v)
+        _G.SpectateEnabled = v
+        if v then
+            if _G.SelectedPlayer then
+                UI:Notify("Spectating", _G.SelectedPlayer.Name, 2)
+            else
+                UI:Notify("Error", "Select a player first!", 2)
+                _G.SpectateEnabled = false
+            end
+        else
+            -- Return camera to own character
+            if LocalPlayer.Character then
+                Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+            end
+            UI:Notify("Spectate", "Stopped", 2)
+        end
+    end):AddKeybind("Toggle Spectate", Enum.KeyCode.V, function(state)
+        _G.SpectateEnabled = state
+    end)
+    
+    -- View Player Stats
+    PlayerPanel.Right:CreateButton("View Player Info", function()
+        if _G.SelectedPlayer then
+            local info = string.format(
+                "Name: %s\nDisplay: %s\nID: %d\nAccount Age: %d days",
+                _G.SelectedPlayer.Name,
+                _G.SelectedPlayer.DisplayName,
+                _G.SelectedPlayer.UserId,
+                _G.SelectedPlayer.AccountAge
+            )
+            
+            -- Create info GUI
+            local InfoGui = Instance.new("ScreenGui")
+            InfoGui.Name = "PlayerInfo"
+            InfoGui.Parent = game.CoreGui
+            
+            local InfoFrame = Instance.new("Frame")
+            InfoFrame.Parent = InfoGui
+            InfoFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            InfoFrame.BorderSizePixel = 0
+            InfoFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+            InfoFrame.Size = UDim2.new(0, 300, 0, 200)
+            
+            local UICorner = Instance.new("UICorner")
+            UICorner.CornerRadius = UDim.new(0, 10)
+            UICorner.Parent = InfoFrame
+            
+            local InfoLabel = Instance.new("TextLabel")
+            InfoLabel.Parent = InfoFrame
+            InfoLabel.BackgroundTransparency = 1
+            InfoLabel.Position = UDim2.new(0, 10, 0, 10)
+            InfoLabel.Size = UDim2.new(1, -20, 1, -50)
+            InfoLabel.Font = Enum.Font.Gotham
+            InfoLabel.Text = info
+            InfoLabel.TextColor3 = Color3.new(1, 1, 1)
+            InfoLabel.TextSize = 16
+            InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+            InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
+            
+            local CloseButton = Instance.new("TextButton")
+            CloseButton.Parent = InfoFrame
+            CloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            CloseButton.Position = UDim2.new(0, 10, 1, -40)
+            CloseButton.Size = UDim2.new(1, -20, 0, 30)
+            CloseButton.Font = Enum.Font.GothamBold
+            CloseButton.Text = "Close"
+            CloseButton.TextColor3 = Color3.new(1, 1, 1)
+            CloseButton.TextSize = 14
+            
+            local CloseCorner = Instance.new("UICorner")
+            CloseCorner.CornerRadius = UDim.new(0, 5)
+            CloseCorner.Parent = CloseButton
+            
+            CloseButton.MouseButton1Click:Connect(function()
+                InfoGui:Destroy()
+            end)
+            
+            UI:Notify("Info", "Showing player info", 2)
+        else
+            UI:Notify("Error", "Select a player first!", 2)
+        end
+    end)
+    
+    -- Copy Player Name
+    PlayerPanel.Right:CreateButton("Copy Player Name", function()
+        if _G.SelectedPlayer then
+            setclipboard(_G.SelectedPlayer.Name)
+            UI:Notify("Copied", _G.SelectedPlayer.Name, 2)
+        else
+            UI:Notify("Error", "Select a player first!", 2)
+        end
+    end)
+    
+    -- Teleport to all players (Loop)
+    PlayerPanel.Center:CreateButton("TP Loop All Players", function()
+        local players = Players:GetPlayers()
+        local index = 1
+        
+        local function teleportNext()
+            if index > #players then
+                UI:Notify("Complete", "Visited all players!", 2)
+                return
+            end
+            
+            local player = players[index]
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                    UI:Notify("Teleporting", "To " .. player.Name .. " (" .. index .. "/" .. #players .. ")", 2)
+                end
+            end
+            
+            index = index + 1
+            task.wait(2) -- Wait 2 seconds between teleports
+            teleportNext()
+        end
+        
+        teleportNext()
+    end)
+    
+    -- View All Players List
+    PlayerPanel.Center:CreateButton("Show All Players", function()
+        local playerList = "Players in server:\n\n"
+        for i, player in pairs(Players:GetPlayers()) do
+            playerList = playerList .. i .. ". " .. player.Name .. "\n"
+        end
+        
+        local ListGui = Instance.new("ScreenGui")
+        ListGui.Name = "PlayerList"
+        ListGui.Parent = game.CoreGui
+        
+        local ListFrame = Instance.new("Frame")
+        ListFrame.Parent = ListGui
+        ListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        ListFrame.BorderSizePixel = 0
+        ListFrame.Position = UDim2.new(0.5, -200, 0.5, -200)
+        ListFrame.Size = UDim2.new(0, 400, 0, 400)
+        
+        local UICorner = Instance.new("UICorner")
+        UICorner.CornerRadius = UDim.new(0, 10)
+        UICorner.Parent = ListFrame
+        
+        local ScrollFrame = Instance.new("ScrollingFrame")
+        ScrollFrame.Parent = ListFrame
+        ScrollFrame.BackgroundTransparency = 1
+        ScrollFrame.Position = UDim2.new(0, 10, 0, 10)
+        ScrollFrame.Size = UDim2.new(1, -20, 1, -50)
+        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        ScrollFrame.ScrollBarThickness = 5
+        
+        local ListLabel = Instance.new("TextLabel")
+        ListLabel.Parent = ScrollFrame
+        ListLabel.BackgroundTransparency = 1
+        ListLabel.Size = UDim2.new(1, 0, 0, 0)
+        ListLabel.Font = Enum.Font.Gotham
+        ListLabel.Text = playerList
+        ListLabel.TextColor3 = Color3.new(1, 1, 1)
+        ListLabel.TextSize = 14
+        ListLabel.TextXAlignment = Enum.TextXAlignment.Left
+        ListLabel.TextYAlignment = Enum.TextYAlignment.Top
+        ListLabel.AutomaticSize = Enum.AutomaticSize.Y
+        
+        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ListLabel.AbsoluteSize.Y + 20)
+        
+        local CloseButton = Instance.new("TextButton")
+        CloseButton.Parent = ListFrame
+        CloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        CloseButton.Position = UDim2.new(0, 10, 1, -40)
+        CloseButton.Size = UDim2.new(1, -20, 0, 30)
+        CloseButton.Font = Enum.Font.GothamBold
+        CloseButton.Text = "Close"
+        CloseButton.TextColor3 = Color3.new(1, 1, 1)
+        CloseButton.TextSize = 14
+        
+        local CloseCorner = Instance.new("UICorner")
+        CloseCorner.CornerRadius = UDim.new(0, 5)
+        CloseCorner.Parent = CloseButton
+        
+        CloseButton.MouseButton1Click:Connect(function()
+            ListGui:Destroy()
+        end)
+    end)
+end
+
+-- [[ SETTINGS PANEL ]] --
+do
+    SettingsPanel.Left:CreateButton("Show Keybinds", function()
+        UI.KeybindFrame:Show()
+    end)
+    
+    SettingsPanel.Left:CreateButton("Hide Keybinds", function()
+        UI.KeybindFrame:Close()
+    end)
+    
+    SettingsPanel.Left:CreateButton("Toggle Keybinds", function()
+        UI.KeybindFrame:Toggle()
+    end)
+    
+    SettingsPanel.Right:CreateCopyButton("Game ID", function()
+        setclipboard(tostring(game.PlaceId))
+        UI:Notify("Copied", "Game ID copied!", 2)
+    end)
+    
+    SettingsPanel.Right:CreateCopyButton("Discord", function()
+        setclipboard("TG/@losthubscript")
+        UI:Notify("Copied", "Contact copied!", 2)
+    end)
+end
+
+-- [[ FOV CIRCLE ]] --
+local Circle = Drawing.new("Circle")
+Circle.Thickness = 2
+Circle.Color = Color3.fromRGB(255, 0, 0)
+Circle.Filled = false
+Circle.NumSides = 64
+Circle.Transparency = 1
+
+-- Wall Check Status Text
+local WallCheckText = Drawing.new("Text")
+WallCheckText.Size = 16
+WallCheckText.Font = 2
+WallCheckText.Outline = true
+WallCheckText.Center = true
+WallCheckText.Visible = false
+WallCheckText.Color = Color3.fromRGB(255, 165, 0)
+
+-- [[ WALLCHECK FUNCTION ]] --
+local function IsVisible(part)
+    if not _G.WallCheck then return true end
+    
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then
+        return false
+    end
+    
+    local origin = Camera.CFrame.Position
+    local direction = (part.Position - origin)
+    
+    -- Create raycast parameters
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    
+    -- Filter out both characters completely
+    local filterList = {LocalPlayer.Character, part.Parent}
+    params.FilterDescendantsInstances = filterList
+    
+    -- Ignore transparent parts
+    params.IgnoreWater = true
+    
+    -- Cast ray
+    local result = workspace:Raycast(origin, direction, params)
+    
+    -- If ray hit something, target is behind wall
+    if result then
+        -- Double check - cast from target to camera
+        local reverseParams = RaycastParams.new()
+        reverseParams.FilterType = Enum.RaycastFilterType.Exclude
+        reverseParams.FilterDescendantsInstances = filterList
+        reverseParams.IgnoreWater = true
+        
+        local reverseResult = workspace:Raycast(part.Position, -direction, reverseParams)
+        
+        -- If both rays hit something, definitely behind wall
+        if reverseResult then
+            return false
+        end
+    end
+    
+    return result == nil
+end
+
+-- [[ AIMBOT LOGIC ]] --
+local currentTarget = nil
+local lastTargetTime = 0
+local targetSwitchDelay = 0.5
+local lastWallCheckFailed = false
+
+RunService.RenderStepped:Connect(function()
+    Circle.Radius = _G.FOV
+    Circle.Position = UserInputService:GetMouseLocation()
+    Circle.Visible = _G.AimEnabled
+    
+    -- Change circle color if wall check is blocking
+    if _G.WallCheck and lastWallCheckFailed then
+        Circle.Color = Color3.fromRGB(255, 165, 0) -- Orange when blocked
+        WallCheckText.Visible = true
+        WallCheckText.Position = Vector2.new(Circle.Position.X, Circle.Position.Y - Circle.Radius - 30)
+        WallCheckText.Text = "⚠️ WALL BLOCKED"
+    else
+        Circle.Color = Color3.fromRGB(255, 0, 0) -- Red normal
+        WallCheckText.Visible = false
+    end
+
+    -- Check if aim key is pressed
+    local isAiming = false
+    
+    if _G.AimEnabled then
+        if typeof(_G.AimKeybind) == "EnumItem" then
+            if _G.AimKeybind.EnumType == Enum.KeyCode then
+                isAiming = UserInputService:IsKeyDown(_G.AimKeybind)
+            elseif _G.AimKeybind.EnumType == Enum.UserInputType then
+                isAiming = UserInputService:IsMouseButtonPressed(_G.AimKeybind)
+            end
+        end
+    end
+
+    if isAiming then
+        local closestTarget = nil
+        local closestValue = math.huge
+        local foundAnyTarget = false
+        local allTargetsBlocked = true
+        
+        -- Find target based on priority mode
+        for _, v in pairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild(_G.AimPart) and v.Character:FindFirstChild("Humanoid") then
+                local humanoid = v.Character.Humanoid
+                
+                if humanoid.Health > 0 then
+                    local part = v.Character[_G.AimPart]
+                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    
+                    if onScreen then
+                        local validTarget = false
+                        local priorityValue = 0
+                        
+                        if _G.PriorityMode == "FOV" then
+                            local screenDist = (Vector2.new(pos.X, pos.Y) - Circle.Position).Magnitude
+                            if screenDist < _G.FOV then
+                                foundAnyTarget = true
+                                -- STRICT WALL CHECK HERE
+                                if IsVisible(part) then
+                                    validTarget = true
+                                    priorityValue = screenDist
+                                    allTargetsBlocked = false
+                                end
+                            end
+                        else
+                            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                                local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+                                local worldDist = (part.Position - myPos).Magnitude
+                                
+                                local screenDist = (Vector2.new(pos.X, pos.Y) - Circle.Position).Magnitude
+                                if screenDist < _G.FOV then
+                                    foundAnyTarget = true
+                                    -- STRICT WALL CHECK HERE
+                                    if IsVisible(part) then
+                                        validTarget = true
+                                        priorityValue = worldDist
+                                        allTargetsBlocked = false
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if validTarget and priorityValue < closestValue then
+                            closestTarget = part
+                            closestValue = priorityValue
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Update wall check status
+        if _G.WallCheck then
+            lastWallCheckFailed = foundAnyTarget and allTargetsBlocked
+        else
+            lastWallCheckFailed = false
+        end
+        
+        -- Target stickiness - but recheck wall every frame
+        if closestTarget then
+            -- Even if we have sticky target, recheck wall
+            if currentTarget ~= closestTarget then
+                local currentTime = tick()
+                if currentTime - lastTargetTime > targetSwitchDelay then
+                    currentTarget = closestTarget
+                    lastTargetTime = currentTime
+                end
+            else
+                -- Verify current target is still visible
+                if _G.WallCheck and not IsVisible(currentTarget) then
+                    currentTarget = nil -- Lose lock if target goes behind wall
+                else
+                    currentTarget = closestTarget
+                end
+            end
+        else
+            currentTarget = nil
+        end
+        
+        -- Smooth aiming - ONLY if target passes wall check
+        if currentTarget and currentTarget.Parent then
+            -- Final wall check before aiming
+            if _G.WallCheck and not IsVisible(currentTarget) then
+                currentTarget = nil
+                return
+            end
+            
+            local targetPos = currentTarget.Position
+            
+            -- Prediction
+            local humanoidRootPart = currentTarget.Parent:FindFirstChild("HumanoidRootPart")
+            if humanoidRootPart and humanoidRootPart:IsA("BasePart") then
+                local velocity = humanoidRootPart.AssemblyLinearVelocity
+                local distance = (humanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+                local predictionTime = distance / 1000
+                local prediction = velocity * predictionTime
+                targetPos = targetPos + prediction
+            end
+            
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPos)
+            
+            local smoothFactor = 1 / _G.Smoothness
+            smoothFactor = math.clamp(smoothFactor, 0.01, 1)
+            
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, smoothFactor)
+        end
+    else
+        currentTarget = nil
+        lastWallCheckFailed = false
+    end
+end)
+
+-- [[ ESP + HEALTH DISPLAY ]] --
+
+-- Crosshair Drawing
+local CrosshairLines = {}
+for i = 1, 4 do
+    local line = Drawing.new("Line")
+    line.Thickness = 2
+    line.Color = Color3.fromRGB(0, 255, 0)
+    line.Transparency = 1
+    CrosshairLines[i] = line
+end
+
+-- Tracer Lines Storage
+local TracerLines = {}
+
+-- Target Info GUI
+local TargetInfoGui = Instance.new("ScreenGui")
+TargetInfoGui.Name = "TargetInfo"
+TargetInfoGui.Parent = game.CoreGui
+
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Parent = TargetInfoGui
+TargetLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+TargetLabel.BackgroundTransparency = 0.5
+TargetLabel.Position = UDim2.new(0.5, -150, 0, 50)
+TargetLabel.Size = UDim2.new(0, 300, 0, 60)
+TargetLabel.Font = Enum.Font.GothamBold
+TargetLabel.Text = "No Target"
+TargetLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetLabel.TextSize = 18
+TargetLabel.Visible = false
+
+-- Update Crosshair
+RunService.RenderStepped:Connect(function()
+    local center = UserInputService:GetMouseLocation()
+    local size = 10
+    local gap = 5
+    
+    if _G.Crosshair then
+        -- Top
+        CrosshairLines[1].From = Vector2.new(center.X, center.Y - gap)
+        CrosshairLines[1].To = Vector2.new(center.X, center.Y - gap - size)
+        -- Bottom
+        CrosshairLines[2].From = Vector2.new(center.X, center.Y + gap)
+        CrosshairLines[2].To = Vector2.new(center.X, center.Y + gap + size)
+        -- Left
+        CrosshairLines[3].From = Vector2.new(center.X - gap, center.Y)
+        CrosshairLines[3].To = Vector2.new(center.X - gap - size, center.Y)
+        -- Right
+        CrosshairLines[4].From = Vector2.new(center.X + gap, center.Y)
+        CrosshairLines[4].To = Vector2.new(center.X + gap + size, center.Y)
+        
+        for _, line in pairs(CrosshairLines) do
+            line.Visible = true
+        end
+    else
+        for _, line in pairs(CrosshairLines) do
+            line.Visible = false
+        end
+    end
+    
+    -- Target Info Display
+    if _G.TargetInfo and currentTarget and currentTarget.Parent then
+        local player = Players:GetPlayerFromCharacter(currentTarget.Parent)
+        if player then
+            local humanoid = currentTarget.Parent:FindFirstChild("Humanoid")
+            local distance = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") 
+                and math.floor((LocalPlayer.Character.HumanoidRootPart.Position - currentTarget.Position).Magnitude) or 0
+            
+            if humanoid then
+                TargetLabel.Text = string.format("🎯 TARGET: %s\n❤️ HP: %d/%d | 📏 %d studs", 
+                    player.Name, 
+                    math.floor(humanoid.Health), 
+                    math.floor(humanoid.MaxHealth),
+                    distance
+                )
+                TargetLabel.Visible = true
+            end
+        end
+    else
+        TargetLabel.Visible = false
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    -- Clean old tracers
+    for _, tracer in pairs(TracerLines) do
+        if tracer then
+            tracer:Remove()
+        end
+    end
+    TracerLines = {}
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            -- Clean up old ESP
+            for _, obj in pairs(player.Character:GetChildren()) do
+                if obj.Name == "Box" or obj.Name == "LOST_ESP" or obj:IsA("BoxHandleAdornment") then
+                    obj:Destroy()
+                end
+            end
+            
+            -- Clean up old health display
+            if player.Character:FindFirstChild("Head") then
+                local head = player.Character.Head
+                for _, obj in pairs(head:GetChildren()) do
+                    if obj.Name == "LOST_HP_GUI" or obj.Name == "LOST_DIST_GUI" then
+                        obj:Destroy()
+                    end
+                end
+            end
+            
+            local highlight = player.Character:FindFirstChild("LOST_HL")
+            
+            if _G.ESPEnabled then
+                -- Create/Update Highlight
+                if not highlight then
+                    highlight = Instance.new("Highlight", player.Character)
+                    highlight.Name = "LOST_HL"
+                    highlight.FillColor = _G.ESPColor
+                    highlight.OutlineColor = Color3.new(1, 1, 1)
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    highlight.FillTransparency = 0.5
+                    highlight.OutlineTransparency = 0
+                else
+                    highlight.FillColor = _G.ESPColor
+                end
+                
+                -- Health Display
+                if _G.HealthESP and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") then
+                    local head = player.Character.Head
+                    local humanoid = player.Character.Humanoid
+                    
+                    local billboardGui = head:FindFirstChild("LOST_HP_GUI")
+                    if not billboardGui then
+                        billboardGui = Instance.new("BillboardGui")
+                        billboardGui.Name = "LOST_HP_GUI"
+                        billboardGui.Parent = head
+                        billboardGui.Size = UDim2.new(0, 100, 0, 40)
+                        billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+                        billboardGui.AlwaysOnTop = true
+                        
+                        local textLabel = Instance.new("TextLabel")
+                        textLabel.Parent = billboardGui
+                        textLabel.Size = UDim2.new(1, 0, 1, 0)
+                        textLabel.BackgroundTransparency = 1
+                        textLabel.TextColor3 = Color3.new(1, 1, 1)
+                        textLabel.TextStrokeTransparency = 0.5
+                        textLabel.TextScaled = true
+                        textLabel.Font = Enum.Font.GothamBold
+                    end
+                    
+                    local textLabel = billboardGui:FindFirstChild("TextLabel")
+                    if textLabel then
+                        local health = math.floor(humanoid.Health)
+                        local maxHealth = math.floor(humanoid.MaxHealth)
+                        textLabel.Text = string.format("%s\n%d/%d HP", player.Name, health, maxHealth)
+                        
+                        -- Color based on health percentage
+                        local healthPercent = health / maxHealth
+                        if healthPercent > 0.6 then
+                            textLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green
+                        elseif healthPercent > 0.3 then
+                            textLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
+                        else
+                            textLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- Red
+                        end
+                    end
+                end
+                
+                -- Distance ESP
+                if _G.DistanceESP and player.Character:FindFirstChild("Head") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local head = player.Character.Head
+                    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+                    local theirPos = player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position or head.Position
+                    local distance = math.floor((myPos - theirPos).Magnitude)
+                    
+                    local distGui = head:FindFirstChild("LOST_DIST_GUI")
+                    if not distGui then
+                        distGui = Instance.new("BillboardGui")
+                        distGui.Name = "LOST_DIST_GUI"
+                        distGui.Parent = head
+                        distGui.Size = UDim2.new(0, 100, 0, 20)
+                        distGui.StudsOffset = Vector3.new(0, -2, 0)
+                        distGui.AlwaysOnTop = true
+                        
+                        local distLabel = Instance.new("TextLabel")
+                        distLabel.Parent = distGui
+                        distLabel.Size = UDim2.new(1, 0, 1, 0)
+                        distLabel.BackgroundTransparency = 1
+                        distLabel.TextColor3 = Color3.new(1, 1, 1)
+                        distLabel.TextStrokeTransparency = 0.5
+                        distLabel.TextScaled = true
+                        distLabel.Font = Enum.Font.GothamBold
+                    end
+                    
+                    local distLabel = distGui:FindFirstChild("TextLabel")
+                    if distLabel then
+                        distLabel.Text = distance .. " studs"
+                    end
+                end
+                
+                -- Tracer ESP
+                if _G.TracerESP and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = player.Character.HumanoidRootPart
+                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    
+                    if onScreen then
+                        local tracer = Drawing.new("Line")
+                        tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        tracer.To = Vector2.new(pos.X, pos.Y)
+                        tracer.Color = _G.ESPColor
+                        tracer.Thickness = 1
+                        tracer.Transparency = 1
+                        tracer.Visible = true
+                        table.insert(TracerLines, tracer)
+                    end
+                end
+                
+                -- Box ESP
+                if _G.BoxESP and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = player.Character.HumanoidRootPart
+                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    
+                    if onScreen then
+                        local box = player.Character:FindFirstChild("LOST_BOX")
+                        if not box then
+                            box = Instance.new("BoxHandleAdornment")
+                            box.Name = "LOST_BOX"
+                            box.Parent = player.Character
+                            box.Adornee = hrp
+                            box.AlwaysOnTop = true
+                            box.ZIndex = 5
+                            box.Size = Vector3.new(4, 6, 1)
+                            box.Transparency = 0.7
+                        end
+                        box.Color3 = _G.ESPColor
+                    end
+                end
+                
+            elseif highlight then
+                highlight:Destroy()
+            end
+        end
+    end
+end)
+
+-- Enable Extra Mouse Effects
+UI:ExtraMouse({
+    dashCount = 8,
+    radius = 25,
+    dashLength = 12,
+    dashThickness = 2,
+    speed = 1,
+    color = Color3.fromRGB(255, 0, 0)
+})
+
+-- [[ MOVEMENT SYSTEMS ]] --
+
+-- Speed & Jump Loop
+RunService.Heartbeat:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        local humanoid = LocalPlayer.Character.Humanoid
+        
+        -- Speed
+        if _G.SpeedEnabled then
+            humanoid.WalkSpeed = _G.WalkSpeed
+        end
+        
+        -- Jump Power
+        if _G.JumpEnabled then
+            humanoid.JumpPower = _G.JumpPower
+        end
+    end
+end)
+
+-- NoClip System
+RunService.Stepped:Connect(function()
+    if _G.NoClipEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Infinite Jump
+UserInputService.JumpRequest:Connect(function()
+    if _G.InfiniteJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- FOV Changer
+RunService.RenderStepped:Connect(function()
+    if _G.FOVChangerEnabled then
+        Camera.FieldOfView = _G.CameraFOV
+    end
+end)
+
+-- Fullbright
+local Lighting = game:GetService("Lighting")
+local originalBrightness = Lighting.Brightness
+local originalAmbient = Lighting.Ambient
+local originalOutdoorAmbient = Lighting.OutdoorAmbient
+
+RunService.Heartbeat:Connect(function()
+    if _G.FullbrightEnabled then
+        Lighting.Brightness = 2
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        Lighting.FogEnd = 100000
+    else
+        Lighting.Brightness = originalBrightness
+        Lighting.Ambient = originalAmbient
+        Lighting.OutdoorAmbient = originalOutdoorAmbient
+    end
+end)
+
+-- Anti-AFK
+local VirtualUser = game:GetService("VirtualUser")
+LocalPlayer.Idled:Connect(function()
+    if _G.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
+end)
+
+-- Spectate System
+RunService.RenderStepped:Connect(function()
+    if _G.SpectateEnabled and _G.SelectedPlayer then
+        if _G.SelectedPlayer.Character and _G.SelectedPlayer.Character:FindFirstChild("Humanoid") then
+            Camera.CameraSubject = _G.SelectedPlayer.Character.Humanoid
+        else
+            _G.SpectateEnabled = false
+            if LocalPlayer.Character then
+                Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+            end
+        end
+    elseif not _G.SpectateEnabled and Camera.CameraSubject ~= LocalPlayer.Character:FindFirstChild("Humanoid") then
+        if LocalPlayer.Character then
+            Camera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+        end
+    end
+end)
+
+-- Fly System
+local flyBodyVelocity = nil
+local flyBodyGyro = nil
+
+local function setupFly()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+    
+    local hrp = LocalPlayer.Character.HumanoidRootPart
+    
+    if not flyBodyVelocity then
+        flyBodyVelocity = Instance.new("BodyVelocity")
+        flyBodyVelocity.MaxForce = Vector3.new(0, 0, 0)
+        flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        flyBodyVelocity.Parent = hrp
+    end
+    
+    if not flyBodyGyro then
+        flyBodyGyro = Instance.new("BodyGyro")
+        flyBodyGyro.MaxTorque = Vector3.new(0, 0, 0)
+        flyBodyGyro.P = 9000
+        flyBodyGyro.Parent = hrp
+    end
+end
+
+local function removeFly()
+    if flyBodyVelocity then
+        flyBodyVelocity:Destroy()
+        flyBodyVelocity = nil
+    end
+    if flyBodyGyro then
+        flyBodyGyro:Destroy()
+        flyBodyGyro = nil
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if _G.FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        setupFly()
+        
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local cam = workspace.CurrentCamera
+        
+        if flyBodyVelocity and flyBodyGyro then
+            flyBodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            flyBodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            
+            local speed = _G.FlySpeed
+            local moveDirection = Vector3.new(0, 0, 0)
+            
+            -- WASD Movement
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveDirection = moveDirection + (cam.CFrame.LookVector * speed)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveDirection = moveDirection - (cam.CFrame.LookVector * speed)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveDirection = moveDirection - (cam.CFrame.RightVector * speed)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveDirection = moveDirection + (cam.CFrame.RightVector * speed)
+            end
+            
+            -- Space/Shift for Up/Down
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveDirection = moveDirection + Vector3.new(0, speed, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveDirection = moveDirection - Vector3.new(0, speed, 0)
+            end
+            
+            flyBodyVelocity.Velocity = moveDirection
+            flyBodyGyro.CFrame = cam.CFrame
+        end
+    else
+        removeFly()
+    end
+end)
+
+UI:Notify("LOST HUB", "Load Success!", 3)
