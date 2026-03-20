@@ -335,11 +335,11 @@ local function FireNotification(title, description, notifType, duration)
 	}, textCol)
 
 	MakeInstance("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 16),
+		Size = UDim2.new(1, 0, 0, 17),
 		BackgroundTransparency = 1,
 		Text = title,
 		TextColor3 = Theme.TextPrimary,
-		TextSize = 13,
+		TextSize = 13.5,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, textCol)
@@ -350,8 +350,8 @@ local function FireNotification(title, description, notifType, duration)
 		Text = description,
 		TextColor3 = accent,
 		TextTransparency = 0.35,
-		TextSize = 11,
-		Font = Enum.Font.Gotham,
+		TextSize = 11.5,
+		Font = Enum.Font.GothamMedium,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, textCol)
 
@@ -509,8 +509,8 @@ function Library:CreateWindow(cfg)
 		BackgroundTransparency = 1,
 		Text = title,
 		TextColor3 = Theme.TextSecondary,
-		TextSize = 12,
-		Font = Enum.Font.GothamMedium,
+		TextSize = 13,
+		Font = Enum.Font.GothamBold,
 		ZIndex = 3,
 	}, titlebar)
 
@@ -683,13 +683,20 @@ function Library:CreateWindow(cfg)
 	-- ── Switch to tab ─────────────────────────────────────────────────────────
 	function Win:SetTab(name)
 		for tabName, btn in pairs(tabButtons) do
-			local isActive = (tabName == name)
-			local targetBG    = isActive and Theme.Surface2 or Color3.fromRGB(0,0,0)
+			local isActive    = (tabName == name)
 			local targetAlpha = isActive and 0 or 1
 			local targetColor = isActive and Theme.TextPrimary or Theme.TextSecondary
 			local barAlpha    = isActive and 0 or 1
-			Tween(btn.frame, 0.15, { BackgroundColor3 = targetBG, BackgroundTransparency = targetAlpha })
+
+			Tween(btn.frame, 0.15, {
+				BackgroundColor3       = isActive and Theme.Surface2 or Color3.fromRGB(0,0,0),
+				BackgroundTransparency = targetAlpha,
+			})
 			Tween(btn.label, 0.15, { TextColor3 = targetColor })
+
+			-- font ตัวหนาตอน active, ปกติตอนไม่ active
+			btn.label.Font = isActive and Enum.Font.GothamBold or Enum.Font.Gotham
+
 			if btn.bar then
 				Tween(btn.bar, 0.15, { BackgroundTransparency = barAlpha })
 			end
@@ -760,8 +767,8 @@ function Library:CreateWindow(cfg)
 			BackgroundTransparency = 1,
 			Text = tabTitle,
 			TextColor3 = Theme.TextSecondary,
-			TextSize = 12.5,
-			Font = Enum.Font.Gotham,
+			TextSize = 13,
+			Font = Enum.Font.GothamBold,
 			TextXAlignment = Enum.TextXAlignment.Left,
 		}, rowLayout)
 
@@ -907,23 +914,23 @@ function Library:CreateWindow(cfg)
 
 		local function MakeLabel(text, parent)
 			return MakeInstance("TextLabel", {
-				Size = UDim2.new(1, 0, 0, 16),
+				Size = UDim2.new(1, 0, 0, 17),
 				BackgroundTransparency = 1,
 				Text = text,
 				TextColor3 = Theme.TextPrimary,
-				TextSize = 13,
-				Font = Enum.Font.Gotham,
+				TextSize = 13.5,
+				Font = Enum.Font.GothamMedium,
 				TextXAlignment = Enum.TextXAlignment.Left,
 			}, parent)
 		end
 
 		local function MakeDescription(text, parent)
 			return MakeInstance("TextLabel", {
-				Size = UDim2.new(1, 0, 0, 13),
+				Size = UDim2.new(1, 0, 0, 14),
 				BackgroundTransparency = 1,
 				Text = text,
 				TextColor3 = Theme.TextSecondary,
-				TextSize = 11,
+				TextSize = 11.5,
 				Font = Enum.Font.Gotham,
 				TextXAlignment = Enum.TextXAlignment.Left,
 			}, parent)
@@ -1404,7 +1411,7 @@ function Library:CreateWindow(cfg)
 					BackgroundTransparency = 1,
 					Text = cfg3.Title,
 					TextColor3 = Theme.TextPrimary,
-					TextSize = 13,
+					TextSize = 13.5,
 					Font = Enum.Font.GothamBold,
 					TextXAlignment = Enum.TextXAlignment.Left,
 					TextWrapped = true,
@@ -1419,7 +1426,7 @@ function Library:CreateWindow(cfg)
 					Text = cfg3.Description,
 					TextColor3 = Theme.TextSecondary,
 					TextSize = 12,
-					Font = Enum.Font.Gotham,
+					Font = Enum.Font.GothamMedium,
 					TextXAlignment = Enum.TextXAlignment.Left,
 					TextWrapped = true,
 				}, container)
