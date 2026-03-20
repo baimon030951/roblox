@@ -1,1094 +1,1385 @@
 --[[
-	Made by Torch
-	Fixed & Updated:
-	  - แก้บัค global scope (Resizing, Resizeable)
-	  - แก้บัค Connect/Clone/Destroy syntax
-	  - แก้บัค Blur nil reference ใน Minimize button
-	  - แก้บัค Dropdown multi-select logic
-	  - เพิ่มปุ่ม 3 สี: แดง = ลบ UI, ส้ม = พับ/ซ่อน, เขียว = (placeholder / maximize)
+    God Weapon Script - WindUI Version
+    Original Author: TheTorch
 ]]
 
---// Services & Connections (แก้: ใช้ method call ที่ถูกต้อง)
-local GetService = function(s) return game:GetService(s) end
+-- ==================== LOAD WINDUI ====================
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
-if not game:IsLoaded() then
-	game.Loaded:Wait()
-end
+-- ==================== WINDOW ====================
+local Window = WindUI:CreateWindow({
+    Title       = "God Weapon",
+    Icon        = "sword",
+    Author      = "โดย TheTorch",
+    Folder      = "GodWeaponConfig",
+    Theme       = "Dark",
+    Resizable   = true,
+    Transparent = true,
+    BackgroundImageTransparency = 0.85,
+    SideBarWidth   = 200,
+    HideSearchBar  = false,
+    ScrollBarEnabled = true,
+    Size    = UDim2.fromOffset(620, 480),
+    MinSize = Vector2.new(580, 400),
+    MaxSize = Vector2.new(900, 600),
+    User = {
+        Enabled   = true,
+        Anonymous = false,
+    },
+})
 
---// Important
-local Setup = {
-	Keybind = Enum.KeyCode.LeftControl,
-	Transparency = 0,
-	ThemeMode = "Dark",
-	Size = nil,
+Window:Tag({
+    Title  = "v2.0",
+    Icon   = "zap",
+    Color  = Color3.fromHex("#00ffcc"),
+    Radius = 6,
+})
 
-	--// Font sizes — ใหญ่ขึ้น หนาขึ้น อ่านง่าย
-	FontSize = {
-		Title          = 20,  -- ชื่อ Window / Section
-		Tab            = 17,  -- ปุ่ม Tab ด้านซ้าย
-		ComponentTitle = 17,  -- ชื่อ Button, Toggle, Slider ฯลฯ
-		Description    = 14,  -- คำอธิบายใต้ component
-		Notification   = 16,  -- ข้อความ Notification
-	},
+-- ==================== TABS ====================
+local PVPTab      = Window:Tab({ Title = "ต่อสู้",   Icon = "crosshair"     })
+local FarmTab     = Window:Tab({ Title = "ฟาร์ม",    Icon = "briefcase"     })
+local TeleportTab = Window:Tab({ Title = "เทเลพอต",  Icon = "map-pin"       })
+local ActivityTab = Window:Tab({ Title = "กิจกรรม",  Icon = "party-popper"  })
+local CarTab      = Window:Tab({ Title = "รถยนต์",   Icon = "car"           })
+local SettingsTab = Window:Tab({ Title = "ตั้งค่า",  Icon = "settings"      })
+
+-- ==================== CONFIG ====================
+local Config = {
+    ExcludedPlayers  = {},
+    TargetingEnabled = false,
+    Highlight = {
+        Enabled      = true,
+        Color        = Color3.fromRGB(0, 255, 255),
+        Transparency = 0.7,
+    },
+    Target = {
+        Size            = Vector3.new(20, 20, 20),
+        RefreshInterval = 1,
+    },
+    Truck = {
+        Selected        = nil,
+        AvailableTrucks = {},
+    },
+    AutoMed = {
+        Enabled = false,
+        Key     = Enum.KeyCode.B,
+        KeyName = "B",
+    },
+    AutoArmor = {
+        Enabled   = false,
+        KeyNumber = 1,
+    },
+    Farm = {
+        Settings  = { TeleportDelay = 5, TeleportCount = 1, CollectAmount = 5, FarmMode = 1 },
+        Grape     = { Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1 },
+        Rock      = { Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1 },
+        ScrapIron = { Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1 },
+        Garbage   = { Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1 },
+    },
 }
 
---// Preset Themes — ดำ แดง เขียว ฟ้า (ตัดขาวออก)
-local Themes = {
-	Dark = {
-		Primary       = Color3.fromRGB(14,  14,  14 ),
-		Secondary     = Color3.fromRGB(20,  20,  20 ),
-		Component     = Color3.fromRGB(30,  30,  30 ),
-		Interactables = Color3.fromRGB(40,  40,  40 ),
-		Hover         = Color3.fromRGB(56,  56,  56 ),
-		Tab           = Color3.fromRGB(170, 170, 170),
-		Title         = Color3.fromRGB(245, 245, 245),
-		Description   = Color3.fromRGB(145, 145, 145),
-		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(48,  48,  48 ),
-		Icon          = Color3.fromRGB(210, 210, 210),
-		Accent        = Color3.fromRGB(120, 110, 255),
-	},
-	Red = {
-		Primary       = Color3.fromRGB(16,  10,  10 ),
-		Secondary     = Color3.fromRGB(24,  14,  14 ),
-		Component     = Color3.fromRGB(38,  20,  20 ),
-		Interactables = Color3.fromRGB(54,  26,  26 ),
-		Hover         = Color3.fromRGB(76,  32,  32 ),
-		Tab           = Color3.fromRGB(230, 150, 150),
-		Title         = Color3.fromRGB(255, 215, 215),
-		Description   = Color3.fromRGB(185, 110, 110),
-		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(90,  30,  30 ),
-		Icon          = Color3.fromRGB(255, 170, 170),
-		Accent        = Color3.fromRGB(230, 50,  50 ),
-	},
-	Green = {
-		Primary       = Color3.fromRGB(8,   18,  12 ),
-		Secondary     = Color3.fromRGB(12,  26,  16 ),
-		Component     = Color3.fromRGB(18,  38,  24 ),
-		Interactables = Color3.fromRGB(24,  52,  32 ),
-		Hover         = Color3.fromRGB(32,  70,  44 ),
-		Tab           = Color3.fromRGB(120, 220, 150),
-		Title         = Color3.fromRGB(190, 255, 210),
-		Description   = Color3.fromRGB(90,  170, 115),
-		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(28,  68,  38 ),
-		Icon          = Color3.fromRGB(150, 240, 175),
-		Accent        = Color3.fromRGB(40,  210, 100),
-	},
-	Blue = {
-		Primary       = Color3.fromRGB(8,   12,  24 ),
-		Secondary     = Color3.fromRGB(12,  18,  34 ),
-		Component     = Color3.fromRGB(18,  26,  50 ),
-		Interactables = Color3.fromRGB(24,  34,  68 ),
-		Hover         = Color3.fromRGB(32,  46,  92 ),
-		Tab           = Color3.fromRGB(130, 165, 245),
-		Title         = Color3.fromRGB(205, 220, 255),
-		Description   = Color3.fromRGB(100, 130, 195),
-		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(28,  42,  88 ),
-		Icon          = Color3.fromRGB(155, 185, 255),
-		Accent        = Color3.fromRGB(60,  125, 255),
-	},
-}
+-- ==================== UTILITY ====================
 
-local Theme = Themes.Dark  -- default
-
---// Services & Functions
-local Type = nil
-local LocalPlayer = GetService("Players").LocalPlayer
-
-local Services = {
-	Insert = GetService("InsertService"),
-	Tween  = GetService("TweenService"),
-	Run    = GetService("RunService"),
-	Input  = GetService("UserInputService"),
-}
-
-local Player = {
-	Mouse = LocalPlayer:GetMouse(),
-	GUI   = LocalPlayer.PlayerGui,
-}
-
--- แก้: helper functions ที่ถูกต้อง
-local function Connect(signal, fn)
-	return signal:Connect(fn)
+local function Notify(title, text, icon, duration)
+    WindUI:Notify({
+        Title    = title,
+        Content  = text,
+        Icon     = icon or "bell",
+        Duration = duration or 3,
+    })
 end
 
-local function Clone(instance)
-	return instance:Clone()
+local function GetAllPlayers()
+    local t = {}
+    for _, p in pairs(game.Players:GetPlayers()) do
+        table.insert(t, p.Name)
+    end
+    return t
 end
 
-local function Destroy(instance)
-	return instance:Destroy()
+-- ==================== TRUCK ====================
+
+local function ScanPlayerTrucks()
+    local name   = game.Players.LocalPlayer.Name
+    local trucks = {}
+    local cache  = workspace:FindFirstChild("CachePart")
+    if not cache then Notify("ไม่พบ CachePart", "สแกนรถไม่ได้", "alert-triangle") return trucks end
+    for _, v in pairs(cache:GetChildren()) do
+        if string.find(v.Name, name) then table.insert(trucks, v.Name) end
+    end
+    return trucks
 end
 
-local Tween = function(Object, Speed, Properties, Info)
-	local Style, Direction
-	if Info then
-		Style, Direction = Info["EasingStyle"], Info["EasingDirection"]
-	else
-		Style, Direction = Enum.EasingStyle.Sine, Enum.EasingDirection.Out
-	end
-	return Services.Tween:Create(Object, TweenInfo.new(Speed, Style, Direction), Properties):Play()
+local function GetTruckForFarming()
+    if Config.Truck.Selected then
+        local cache = workspace:FindFirstChild("CachePart")
+        if cache then
+            local t = cache:FindFirstChild(Config.Truck.Selected)
+            if t then return t end
+        end
+    end
+    local name  = game.Players.LocalPlayer.Name
+    local cache = workspace:FindFirstChild("CachePart")
+    if cache then
+        for _, v in pairs(cache:GetChildren()) do
+            if string.find(v.Name, name) then
+                Config.Truck.Selected = v.Name
+                return v
+            end
+        end
+    end
+    return game.Players.LocalPlayer:FindFirstChild("Truck (150Kg)(Free)")
 end
 
-local SetProperty = function(Object, Properties)
-	for Index, Property in next, Properties do
-		Object[Index] = Property
-	end
-	return Object
+-- ==================== TARGET ====================
+
+local function ApplyTargetingToAll()
+    local modified, skipped = 0, 0
+    local exclude = {}
+    for _, n in pairs(Config.ExcludedPlayers) do exclude[n] = true end
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if exclude[player.Name] then skipped += 1 continue end
+        local model = workspace:FindFirstChild(player.Name)
+        if not model then continue end
+        local head2 = model:FindFirstChild("Head2")
+        if not head2 then continue end
+
+        for _, child in pairs(head2:GetChildren()) do
+            if not string.match(child.Name, "^TARGET_") then continue end
+            if not child:IsA("BasePart") then continue end
+
+            child.Size         = Config.Target.Size
+            child.Transparency = Config.Highlight.Transparency
+
+            local hl = child:FindFirstChildOfClass("Highlight") or Instance.new("Highlight", child)
+            hl.FillColor           = Config.Highlight.Color
+            hl.OutlineColor        = Config.Highlight.Color
+            hl.FillTransparency    = 1
+            hl.OutlineTransparency = 0
+            hl.Enabled             = Config.Highlight.Enabled
+
+            local sb = child:FindFirstChildOfClass("SelectionBox")
+            if not sb then
+                sb = Instance.new("SelectionBox", child)
+                sb.Adornee = child
+            end
+            sb.Color3        = Config.Highlight.Color
+            sb.LineThickness = 0.05
+            sb.Transparency  = 0
+            sb.Visible       = Config.Highlight.Enabled
+
+            modified += 1
+        end
+    end
+    return modified, skipped
 end
 
-local Multiply = function(Value, Amount)
-	local New = {
-		Value.X.Scale * Amount,
-		Value.X.Offset * Amount,
-		Value.Y.Scale * Amount,
-		Value.Y.Offset * Amount,
-	}
-	return UDim2.new(table.unpack(New))
+local function ResetAllTargets()
+    local count = 0
+    for _, player in pairs(game.Players:GetPlayers()) do
+        local model = workspace:FindFirstChild(player.Name)
+        if not model then continue end
+        local head2 = model:FindFirstChild("Head2")
+        if not head2 then continue end
+        for _, child in pairs(head2:GetChildren()) do
+            if not string.match(child.Name, "^TARGET_") then continue end
+            if not child:IsA("BasePart") then continue end
+            child.Size = Vector3.new(0, 0, 0)
+            local hl = child:FindFirstChildOfClass("Highlight")
+            if hl then hl:Destroy() end
+            local sb = child:FindFirstChildOfClass("SelectionBox")
+            if sb then sb:Destroy() end
+            count += 1
+        end
+    end
+    return count
 end
 
-local Color = function(Col, Factor, Mode)
-	Mode = Mode or Setup.ThemeMode
-	if Mode == "Light" then
-		return Color3.fromRGB((Col.R * 255) - Factor, (Col.G * 255) - Factor, (Col.B * 255) - Factor)
-	else
-		return Color3.fromRGB((Col.R * 255) + Factor, (Col.G * 255) + Factor, (Col.B * 255) + Factor)
-	end
+-- ==================== FARM HELPERS ====================
+
+local function GetPosKey(pos)
+    return string.format("%.2f_%.2f_%.2f", pos.X, pos.Y, pos.Z)
 end
 
-local Drag = function(Canvas)
-	if not Canvas then return end
-
-	local Dragging, DragInput, Start, StartPosition
-
-	Connect(Canvas.InputBegan, function(Input)
-		if (Input.UserInputType == Enum.UserInputType.MouseButton1 or
-			Input.UserInputType == Enum.UserInputType.Touch) and not Type then
-			Dragging     = true
-			Start        = Input.Position
-			StartPosition = Canvas.Position
-
-			Connect(Input.Changed, function()
-				if Input.UserInputState == Enum.UserInputState.End then
-					Dragging = false
-				end
-			end)
-		end
-	end)
-
-	Connect(Canvas.InputChanged, function(Input)
-		if (Input.UserInputType == Enum.UserInputType.MouseMovement or
-			Input.UserInputType == Enum.UserInputType.Touch) and not Type then
-			DragInput = Input
-		end
-	end)
-
-	Connect(Services.Input.InputChanged, function(Input)
-		if Input == DragInput and Dragging and not Type then
-			local delta = Input.Position - Start
-			Canvas.Position = UDim2.new(
-				StartPosition.X.Scale,
-				StartPosition.X.Offset + delta.X,
-				StartPosition.Y.Scale,
-				StartPosition.Y.Offset + delta.Y
-			)
-		end
-	end)
+local function CountVisited(t)
+    local c = 0
+    for _ in pairs(t) do c += 1 end
+    return c
 end
 
--- แก้: เปลี่ยนเป็น local
-local Resizing = {
-	TopLeft     = { X = Vector2.new(-1, 0), Y = Vector2.new(0, -1) },
-	TopRight    = { X = Vector2.new(1, 0),  Y = Vector2.new(0, -1) },
-	BottomLeft  = { X = Vector2.new(-1, 0), Y = Vector2.new(0, 1)  },
-	BottomRight = { X = Vector2.new(1, 0),  Y = Vector2.new(0, 1)  },
-}
-
-local Resizeable = function(Tab, Minimum, Maximum)
-	task.spawn(function()
-		local MousePos, Size, UIPos = nil, nil, nil
-
-		if Tab and Tab:FindFirstChild("Resize") then
-			local Positions = Tab:FindFirstChild("Resize")
-
-			for _, Types in next, Positions:GetChildren() do
-				Connect(Types.InputBegan, function(Input)
-					if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-						Type     = Types
-						MousePos = Vector2.new(Player.Mouse.X, Player.Mouse.Y)
-						Size     = Tab.AbsoluteSize
-						UIPos    = Tab.Position
-					end
-				end)
-
-				Connect(Types.InputEnded, function(Input)
-					if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-						Type = nil
-					end
-				end)
-			end
-		end
-
-		local Resize = function(Delta)
-			if Type and MousePos and Size and UIPos then
-				local ResizeFrame = Tab:FindFirstChild("Resize")
-				if not ResizeFrame or ResizeFrame[Type.Name] ~= Type then return end
-
-				local Mode    = Resizing[Type.Name]
-				local NewSize = Vector2.new(
-					Size.X + Delta.X * Mode.X.X,
-					Size.Y + Delta.Y * Mode.Y.Y
-				)
-				NewSize = Vector2.new(
-					math.clamp(NewSize.X, Minimum.X, Maximum.X),
-					math.clamp(NewSize.Y, Minimum.Y, Maximum.Y)
-				)
-
-				local AnchorOffset    = Vector2.new(Tab.AnchorPoint.X * Size.X,    Tab.AnchorPoint.Y * Size.Y)
-				local NewAnchorOffset = Vector2.new(Tab.AnchorPoint.X * NewSize.X, Tab.AnchorPoint.Y * NewSize.Y)
-				local DeltaAnchor     = NewAnchorOffset - AnchorOffset
-
-				Tab.Size = UDim2.new(0, NewSize.X, 0, NewSize.Y)
-				Tab.Position = UDim2.new(
-					UIPos.X.Scale,
-					UIPos.X.Offset + DeltaAnchor.X * Mode.X.X,
-					UIPos.Y.Scale,
-					UIPos.Y.Offset + DeltaAnchor.Y * Mode.Y.Y
-				)
-			end
-		end
-
-		Connect(Player.Mouse.Move, function()
-			if Type then
-				Resize(Vector2.new(Player.Mouse.X, Player.Mouse.Y) - MousePos)
-			end
-		end)
-	end)
+local function TeleportAndJump(cf)
+    local char = game.Players.LocalPlayer.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not hrp or not hum then return false end
+    local ok = pcall(function() hrp.CFrame = cf end)
+    if not ok then return false end
+    task.wait(0.1)
+    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+    -- กดถอยหลังนิดหน่อยหลังวาป
+    pcall(function()
+        local VIM = game:GetService("VirtualInputManager")
+        VIM:SendKeyEvent(true, Enum.KeyCode.S, false, game)
+        task.wait(0.2)
+        VIM:SendKeyEvent(false, Enum.KeyCode.S, false, game)
+    end)
+    return true
 end
 
---// Setup [UI]
-local Screen, Blur
+-- ==================== PVP TAB ====================
 
-if identifyexecutor then
-	Screen = Services.Insert:LoadLocalAsset("rbxassetid://18490507748")
-	Blur   = loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/lates-lib/main/Assets/Blur.lua"))()
-else
-	Screen = script.Parent
-	Blur   = require(script.Blur)
+PVPTab:Section({ Title = "ระบบเล็ง", TextSize = 14, FontWeight = "SemiBold" })
+
+local playerDropdown = PVPTab:Dropdown({
+    Title     = "ยกเว้นผู้เล่น",
+    Desc      = "ผู้เล่นที่เลือกจะไม่ถูกปรับ",
+    Values    = GetAllPlayers(),
+    Multi     = true,
+    AllowNone = true,
+    Callback  = function(v)
+        Config.ExcludedPlayers = v
+        if Config.TargetingEnabled then ApplyTargetingToAll() end
+    end,
+})
+
+PVPTab:Space()
+
+PVPTab:Button({
+    Title    = "รีเฟรชรายชื่อผู้เล่น",
+    Icon     = "refresh-cw",
+    Callback = function()
+        playerDropdown:Refresh(GetAllPlayers())
+        Notify("สำเร็จ", "อัพเดทรายชื่อแล้ว", "check")
+    end,
+})
+
+PVPTab:Space()
+
+PVPTab:Input({
+    Title       = "ขนาดเป้าหมาย (X,Y,Z)",
+    Desc        = "เช่น 20,20,20",
+    Value       = "20,20,20",
+    Placeholder = "20,20,20",
+    Callback    = function(v)
+        local vals = {}
+        for n in string.gmatch(v, "[^,]+") do
+            local num = tonumber(n)
+            if num then table.insert(vals, num) end
+        end
+        if #vals == 3 then
+            Config.Target.Size = Vector3.new(vals[1], vals[2], vals[3])
+            Notify("อัพเดทขนาด", string.format("%.0f, %.0f, %.0f", vals[1], vals[2], vals[3]), "maximize-2")
+            if Config.TargetingEnabled then ApplyTargetingToAll() end
+        else
+            Notify("ผิดพลาด", "ใช้รูปแบบ X,Y,Z", "alert-triangle")
+        end
+    end,
+})
+
+PVPTab:Space()
+
+PVPTab:Toggle({
+    Title    = "เปิดการปรับเป้าหมาย",
+    Desc     = "เปิด = ขยาย | ปิด = รีเซ็ต",
+    Value    = false,
+    Callback = function(state)
+        Config.TargetingEnabled = state
+        if state then
+            local m, s = ApplyTargetingToAll()
+            Notify("เปิดแล้ว", string.format("ปรับ %d | ข้าม %d", m, s), "target", 5)
+
+            -- Loop คอย re-apply อัตโนมัติทุก RefreshInterval วิ กันหลุด
+            task.spawn(function()
+                while Config.TargetingEnabled do
+                    ApplyTargetingToAll()
+                    task.wait(Config.Target.RefreshInterval)
+                end
+            end)
+        else
+            Notify("ปิดแล้ว", string.format("รีเซ็ต %d เป้าหมาย", ResetAllTargets()), "x-circle", 5)
+        end
+    end,
+})
+
+PVPTab:Input({
+    Title       = "รีเฟรช Hitbox ทุก (วินาที)",
+    Desc        = "ระยะเวลา re-apply hitbox อัตโนมัติ เช่น 1",
+    Value       = "1",
+    Placeholder = "1",
+    Callback    = function(v)
+        local n = tonumber(v)
+        if n and n > 0 then
+            Config.Target.RefreshInterval = n
+            Notify("อัพเดท", "รีเฟรช hitbox ทุก " .. n .. " วิ", "timer")
+        else
+            Notify("ผิดพลาด", "ใส่ตัวเลขเท่านั้น", "alert-triangle")
+        end
+    end,
+})
+
+PVPTab:Space()
+
+PVPTab:Button({
+    Title    = "บังคับอัพเดท",
+    Icon     = "zap",
+    Callback = function()
+        if not Config.TargetingEnabled then
+            Notify("คำเตือน", "เปิด toggle ก่อน!", "alert-triangle")
+            return
+        end
+        local m, s = ApplyTargetingToAll()
+        Notify("อัพเดท", string.format("ปรับ %d | ข้าม %d", m, s), "zap", 5)
+    end,
+})
+
+PVPTab:Section({ Title = "การตั้งค่าภาพ", TextSize = 14, FontWeight = "SemiBold" })
+
+PVPTab:Toggle({
+    Title    = "เปิดไฮไลท์",
+    Value    = true,
+    Callback = function(state)
+        Config.Highlight.Enabled = state
+        if Config.TargetingEnabled then ApplyTargetingToAll() end
+    end,
+})
+
+PVPTab:Space()
+
+PVPTab:Slider({
+    Title    = "ความโปร่งใส",
+    Desc     = "0 = ทึบ / 1 = ใส",
+    Step     = 0.01,
+    Value    = { Min = 0, Max = 1, Default = 0.7 },
+    Callback = function(v)
+        Config.Highlight.Transparency = v
+        if Config.TargetingEnabled then ApplyTargetingToAll() end
+    end,
+})
+
+PVPTab:Space()
+
+PVPTab:Colorpicker({
+    Title    = "สีไฮไลท์",
+    Default  = Color3.fromRGB(0, 255, 255),
+    Callback = function(color)
+        Config.Highlight.Color = color
+        if Config.TargetingEnabled then ApplyTargetingToAll() end
+    end,
+})
+
+PVPTab:Section({ Title = "ยาอัตโนมัติ", TextSize = 14, FontWeight = "SemiBold" })
+
+PVPTab:Input({
+    Title       = "ปุ่มสลับ (เช่น B, F, G)",
+    Value       = "B",
+    Placeholder = "B",
+    Callback    = function(v)
+        local key = v:upper()
+        local ok, kc = pcall(function() return Enum.KeyCode[key] end)
+        if ok and kc then
+            Config.AutoMed.Key     = kc
+            Config.AutoMed.KeyName = key
+            Notify("อัพเดทปุ่มยา", "ปุ่ม: " .. key, "pill")
+        else
+            Notify("ผิดพลาด", "ชื่อปุ่มไม่ถูกต้อง", "alert-triangle")
+        end
+    end,
+})
+
+local function StartAutoMed()
+    task.spawn(function()
+        while Config.AutoMed.Enabled do
+            pcall(function()
+                game.Lighting.Sky.Optimized:FireServer("Medkit", "", "")
+            end)
+            task.wait(5)
+        end
+    end)
 end
 
-Screen.Main.Visible = false
-
-xpcall(function()
-	Screen.Parent = game.CoreGui
-end, function()
-	Screen.Parent = Player.GUI
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode ~= Config.AutoMed.Key then return end
+    Config.AutoMed.Enabled = not Config.AutoMed.Enabled
+    if Config.AutoMed.Enabled then
+        StartAutoMed()
+        Notify("ยาอัตโนมัติ ON", "กด " .. Config.AutoMed.KeyName .. " เพื่อปิด", "pill")
+    else
+        Notify("ยาอัตโนมัติ OFF", "หยุดแล้ว", "pill")
+    end
 end)
 
---// Tables for Data
-local Animations   = {}
-local Blurs        = {}
-local Components   = Screen:FindFirstChild("Components")
-local Library      = {}
-local StoredInfo   = {
-	["Sections"] = {},
-	["Tabs"]     = {},
+PVPTab:Section({ Title = "เกราะอัตโนมัติ", TextSize = 14, FontWeight = "SemiBold" })
+
+PVPTab:Input({
+    Title       = "ปุ่มเกราะ (1-8)",
+    Value       = "1",
+    Placeholder = "1",
+    Callback    = function(v)
+        local n = tonumber(v)
+        if n and n >= 1 and n <= 8 then
+            Config.AutoArmor.KeyNumber = math.floor(n)
+            Notify("อัพเดทปุ่มเกราะ", "ปุ่ม " .. Config.AutoArmor.KeyNumber, "shield")
+        end
+    end,
+})
+
+PVPTab:Space()
+
+local function CheckAndEquipArmor()
+    local model = workspace:FindFirstChild(game.Players.LocalPlayer.Name)
+    if not model or model:FindFirstChild("BodyArmor") then return end
+    local keyMap = {
+        Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four,
+        Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight,
+    }
+    local kc = keyMap[Config.AutoArmor.KeyNumber]
+    if not kc then return end
+    local VIM = game:GetService("VirtualInputManager")
+    VIM:SendKeyEvent(true, kc, false, game)
+    task.wait(0.1)
+    VIM:SendKeyEvent(false, kc, false, game)
+end
+
+PVPTab:Toggle({
+    Title    = "สวมเกราะอัตโนมัติ",
+    Desc     = "สวมเมื่อไม่มี BodyArmor",
+    Value    = false,
+    Callback = function(state)
+        Config.AutoArmor.Enabled = state
+        if state then
+            task.spawn(function()
+                while Config.AutoArmor.Enabled do
+                    CheckAndEquipArmor()
+                    task.wait(1)
+                end
+            end)
+            Notify("เกราะอัตโนมัติ ON", "สวมเกราะเมื่อจำเป็น", "shield")
+        else
+            Notify("เกราะอัตโนมัติ OFF", "หยุดแล้ว", "shield")
+        end
+    end,
+})
+
+-- ==================== FARM TAB ====================
+
+FarmTab:Section({ Title = "เลือกรถบรรทุก", TextSize = 14, FontWeight = "SemiBold" })
+
+local truckDropdown = FarmTab:Dropdown({
+    Title     = "รถบรรทุก",
+    Desc      = "เลือกรถที่จะส่งไอเทม",
+    Values    = {},
+    AllowNone = false,
+    Callback  = function(v)
+        Config.Truck.Selected = v
+        Notify("เลือกรถแล้ว", v, "truck")
+    end,
+})
+
+FarmTab:Space()
+
+FarmTab:Button({
+    Title    = "สแกนรถของฉัน",
+    Icon     = "search",
+    Callback = function()
+        local trucks = ScanPlayerTrucks()
+        Config.Truck.AvailableTrucks = trucks
+        if #trucks > 0 then
+            truckDropdown:Refresh(trucks)
+            if not Config.Truck.Selected then
+                Config.Truck.Selected = trucks[1]
+                truckDropdown:Set(trucks[1])
+            end
+            Notify("พบรถ", string.format("พบ %d คัน", #trucks), "truck")
+        else
+            Notify("ไม่พบรถ", "ไม่พบรถในชื่อของคุณ", "alert-triangle")
+        end
+    end,
+})
+
+-- ── ตั้งค่าฟาร์ม (ใช้กับทุกฟาร์ม) ──
+FarmTab:Section({ Title = "ตั้งค่าฟาร์ม (ใช้ทุกฟาร์ม)", TextSize = 14, FontWeight = "SemiBold" })
+
+FarmTab:Dropdown({
+    Title    = "โหมดฟาร์ม",
+    Desc     = "โหมด 1: วาปซ้ำได้ | โหมด 2: วาปไม่ซ้ำจนหมดแล้ว reset",
+    Values   = { "โหมด 1 - วาปซ้ำได้", "โหมด 2 - ไม่ซ้ำเรื่อยๆ" },
+    Value    = "โหมด 1 - วาปซ้ำได้",
+    AllowNone = false,
+    Callback = function(v)
+        if v == "โหมด 1 - วาปซ้ำได้" then
+            Config.Farm.Settings.FarmMode = 1
+            Notify("โหมดฟาร์ม", "โหมด 1: วาปซ้ำได้", "repeat")
+        else
+            Config.Farm.Settings.FarmMode = 2
+            Notify("โหมดฟาร์ม", "โหมด 2: ไม่ซ้ำเรื่อยๆ", "shuffle")
+        end
+    end,
+})
+
+FarmTab:Input({
+    Title       = "ดีเลวาป (วินาที)",
+    Desc        = "หน่วงเวลาระหว่างการวาปแต่ละครั้ง เช่น 5",
+    Value       = "5",
+    Placeholder = "5",
+    Callback    = function(v)
+        local n = tonumber(v)
+        if n and n > 0 then
+            Config.Farm.Settings.TeleportDelay = n
+            Notify("อัพเดท", "ดีเลวาป: " .. n .. " วิ", "timer")
+        else
+            Notify("ผิดพลาด", "ใส่ตัวเลขเท่านั้น", "alert-triangle")
+        end
+    end,
+})
+
+FarmTab:Input({
+    Title       = "วาปกี่ครั้งจึงเก็บ",
+    Desc        = "จำนวนครั้งที่วาปก่อนจะนับว่าเก็บแล้ว เช่น 1",
+    Value       = "1",
+    Placeholder = "1",
+    Callback    = function(v)
+        local n = tonumber(v)
+        if n and n >= 1 then
+            Config.Farm.Settings.TeleportCount = math.floor(n)
+            Notify("อัพเดท", "วาป " .. math.floor(n) .. " ครั้งจึงเก็บ", "repeat")
+        else
+            Notify("ผิดพลาด", "ใส่ตัวเลขเท่านั้น", "alert-triangle")
+        end
+    end,
+})
+
+FarmTab:Input({
+    Title       = "จำนวนที่เก็บต่อครั้ง",
+    Desc        = "เก็บของกี่ชิ้นต่อรอบ เช่น 5",
+    Value       = "5",
+    Placeholder = "5",
+    Callback    = function(v)
+        local n = tonumber(v)
+        if n and n >= 1 then
+            Config.Farm.Settings.CollectAmount = math.floor(n)
+            Notify("อัพเดท", "เก็บ " .. math.floor(n) .. " ชิ้นต่อรอบ", "package")
+        else
+            Notify("ผิดพลาด", "ใส่ตัวเลขเท่านั้น", "alert-triangle")
+        end
+    end,
+})
+
+-- ── GRAPE ──
+FarmTab:Section({ Title = "ฟาร์มองุ่น", TextSize = 14, FontWeight = "SemiBold" })
+
+local function FindAvailableGrape()
+    local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("Grape")
+    if not folder then return nil, nil end
+    for _, g in pairs(folder:GetChildren()) do
+        if not g:IsA("BasePart") then continue end
+        local key = GetPosKey(g.Position)
+        if not Config.Farm.Grape.Visited[key] then return g, key end
+    end
+    return nil, nil
+end
+
+local function StartGrapeFarm()
+    task.spawn(function()
+        while Config.Farm.Grape.Enabled do
+            local truck = GetTruckForFarming()
+            if truck then
+                pcall(function()
+                    game.ReplicatedStorage.Remote.data:FireServer("post", "Grape", Config.Farm.Settings.CollectAmount, truck)
+                end)
+            else
+                Notify("ไม่พบรถ", "ส่งองุ่นไม่ได้", "alert-triangle")
+            end
+            task.wait(Config.Farm.Settings.TeleportDelay)
+        end
+    end)
+    task.spawn(function()
+        while Config.Farm.Grape.Enabled do
+            local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("Grape")
+            if not folder then task.wait(1) continue end
+            local items = {}
+            for _, g in pairs(folder:GetChildren()) do
+                if g:IsA("BasePart") then table.insert(items, g) end
+            end
+            if #items == 0 then task.wait(1) continue end
+
+            if Config.Farm.Settings.FarmMode == 2 then
+                -- โหมด 2: index pointer เดินหน้าทีละตัว ไม่ซ้ำจนครบแล้ววนใหม่
+                if Config.Farm.Grape.Index > #items then
+                    Config.Farm.Grape.Index = 1
+                    Config.Farm.Grape.TeleportCounter = 0
+                    task.wait(0.5)
+                    continue
+                end
+                local g = items[Config.Farm.Grape.Index]
+                Config.Farm.Grape.TeleportCounter += 1
+                if TeleportAndJump(g.CFrame) then
+                    if Config.Farm.Grape.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                        Config.Farm.Grape.Index += 1
+                        Config.Farm.Grape.TeleportCounter = 0
+                    end
+                    task.wait(Config.Farm.Settings.TeleportDelay)
+                end
+            else
+                -- โหมด 1: แบบเดิม
+                if CountVisited(Config.Farm.Grape.Visited) >= #items then
+                    Config.Farm.Grape.Visited = {}
+                    task.wait(0.5)
+                end
+                local g, key = FindAvailableGrape()
+                if g then
+                    Config.Farm.Grape.TeleportCounter += 1
+                    if TeleportAndJump(g.CFrame) then
+                        if Config.Farm.Grape.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                            Config.Farm.Grape.Visited[key] = true
+                            Config.Farm.Grape.TeleportCounter = 0
+                        end
+                        task.wait(Config.Farm.Settings.TeleportDelay)
+                    end
+                else
+                    Config.Farm.Grape.Visited = {}
+                    Config.Farm.Grape.TeleportCounter = 0
+                    task.wait(0.5)
+                end
+            end
+        end
+    end)
+end
+
+FarmTab:Toggle({
+    Title    = "ฟาร์มองุ่นอัตโนมัติ",
+    Desc     = "วาปเก็บองุ่นแล้วส่งรถ",
+    Value    = false,
+    Callback = function(state)
+        Config.Farm.Grape.Enabled = state
+        if state then
+            StartGrapeFarm()
+            Notify("ฟาร์มองุ่น ON", "เปิดแล้ว", "sprout")
+        else
+            Notify("ฟาร์มองุ่น OFF", "หยุดแล้ว", "sprout")
+        end
+    end,
+})
+
+FarmTab:Section({ Title = "ฟาร์มหิน", TextSize = 14, FontWeight = "SemiBold" })
+
+local function FindAvailableRock()
+    local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("Miner")
+    if not folder then return nil, nil end
+    for _, r in pairs(folder:GetChildren()) do
+        if not r:IsA("BasePart") then continue end
+        local key = GetPosKey(r.Position)
+        if not Config.Farm.Rock.Visited[key] then return r, key end
+    end
+    return nil, nil
+end
+
+local function StartRockFarm()
+    task.spawn(function()
+        while Config.Farm.Rock.Enabled do
+            local truck = GetTruckForFarming()
+            if truck then
+                pcall(function()
+                    game.ReplicatedStorage.Remote.data:FireServer("post", "Rock", Config.Farm.Settings.CollectAmount, truck)
+                end)
+            else
+                Notify("ไม่พบรถ", "ส่งหินไม่ได้", "alert-triangle")
+            end
+            task.wait(Config.Farm.Settings.TeleportDelay)
+        end
+    end)
+    task.spawn(function()
+        while Config.Farm.Rock.Enabled do
+            local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("Miner")
+            if not folder then task.wait(1) continue end
+            local items = {}
+            for _, r in pairs(folder:GetChildren()) do
+                if r:IsA("BasePart") then table.insert(items, r) end
+            end
+            if #items == 0 then task.wait(1) continue end
+
+            if Config.Farm.Settings.FarmMode == 2 then
+                if Config.Farm.Rock.Index > #items then
+                    Config.Farm.Rock.Index = 1
+                    Config.Farm.Rock.TeleportCounter = 0
+                    task.wait(0.5)
+                    continue
+                end
+                local r = items[Config.Farm.Rock.Index]
+                Config.Farm.Rock.TeleportCounter += 1
+                if TeleportAndJump(r.CFrame) then
+                    if Config.Farm.Rock.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                        Config.Farm.Rock.Index += 1
+                        Config.Farm.Rock.TeleportCounter = 0
+                    end
+                    task.wait(Config.Farm.Settings.TeleportDelay)
+                end
+            else
+                if CountVisited(Config.Farm.Rock.Visited) >= #items then
+                    Config.Farm.Rock.Visited = {}
+                    task.wait(0.5)
+                end
+                local r, key = FindAvailableRock()
+                if r then
+                    Config.Farm.Rock.TeleportCounter += 1
+                    if TeleportAndJump(r.CFrame) then
+                        if Config.Farm.Rock.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                            Config.Farm.Rock.Visited[key] = true
+                            Config.Farm.Rock.TeleportCounter = 0
+                        end
+                        task.wait(Config.Farm.Settings.TeleportDelay)
+                    end
+                else
+                    Config.Farm.Rock.Visited = {}
+                    Config.Farm.Rock.TeleportCounter = 0
+                    task.wait(0.5)
+                end
+            end
+        end
+    end)
+end
+
+FarmTab:Toggle({
+    Title    = "ฟาร์มหินอัตโนมัติ",
+    Desc     = "วาปเก็บหินแล้วส่งรถ",
+    Value    = false,
+    Callback = function(state)
+        Config.Farm.Rock.Enabled = state
+        if state then
+            StartRockFarm()
+            Notify("ฟาร์มหิน ON", "เปิดแล้ว", "mountain")
+        else
+            Notify("ฟาร์มหิน OFF", "หยุดแล้ว", "mountain")
+        end
+    end,
+})
+
+FarmTab:Section({ Title = "ฟาร์มเหล็ก", TextSize = 14, FontWeight = "SemiBold" })
+
+local function FindAvailableScrapIron()
+    local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("ScrapIron")
+    if not folder then return nil, nil end
+    for _, i in pairs(folder:GetChildren()) do
+        if not i:IsA("BasePart") then continue end
+        local key = GetPosKey(i.Position)
+        if not Config.Farm.ScrapIron.Visited[key] then return i, key end
+    end
+    return nil, nil
+end
+
+local function StartScrapIronFarm()
+    task.spawn(function()
+        while Config.Farm.ScrapIron.Enabled do
+            local truck = GetTruckForFarming()
+            if truck then
+                pcall(function()
+                    game.ReplicatedStorage.Remote.data:FireServer("post", "ScrapIron", Config.Farm.Settings.CollectAmount, truck)
+                end)
+            else
+                Notify("ไม่พบรถ", "ส่งเหล็กไม่ได้", "alert-triangle")
+            end
+            task.wait(Config.Farm.Settings.TeleportDelay)
+        end
+    end)
+    task.spawn(function()
+        while Config.Farm.ScrapIron.Enabled do
+            local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("ScrapIron")
+            if not folder then task.wait(1) continue end
+            local items = {}
+            for _, i in pairs(folder:GetChildren()) do
+                if i:IsA("BasePart") then table.insert(items, i) end
+            end
+            if #items == 0 then task.wait(1) continue end
+
+            if Config.Farm.Settings.FarmMode == 2 then
+                if Config.Farm.ScrapIron.Index > #items then
+                    Config.Farm.ScrapIron.Index = 1
+                    Config.Farm.ScrapIron.TeleportCounter = 0
+                    task.wait(0.5)
+                    continue
+                end
+                local i = items[Config.Farm.ScrapIron.Index]
+                Config.Farm.ScrapIron.TeleportCounter += 1
+                if TeleportAndJump(i.CFrame) then
+                    if Config.Farm.ScrapIron.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                        Config.Farm.ScrapIron.Index += 1
+                        Config.Farm.ScrapIron.TeleportCounter = 0
+                    end
+                    task.wait(Config.Farm.Settings.TeleportDelay)
+                end
+            else
+                if CountVisited(Config.Farm.ScrapIron.Visited) >= #items then
+                    Config.Farm.ScrapIron.Visited = {}
+                    task.wait(0.5)
+                end
+                local i, key = FindAvailableScrapIron()
+                if i then
+                    Config.Farm.ScrapIron.TeleportCounter += 1
+                    if TeleportAndJump(i.CFrame) then
+                        if Config.Farm.ScrapIron.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                            Config.Farm.ScrapIron.Visited[key] = true
+                            Config.Farm.ScrapIron.TeleportCounter = 0
+                        end
+                        task.wait(Config.Farm.Settings.TeleportDelay)
+                    end
+                else
+                    Config.Farm.ScrapIron.Visited = {}
+                    Config.Farm.ScrapIron.TeleportCounter = 0
+                    task.wait(0.5)
+                end
+            end
+        end
+    end)
+end
+
+FarmTab:Toggle({
+    Title    = "ฟาร์มเหล็กอัตโนมัติ",
+    Desc     = "วาปเก็บเหล็กแล้วส่งรถ",
+    Value    = false,
+    Callback = function(state)
+        Config.Farm.ScrapIron.Enabled = state
+        if state then
+            StartScrapIronFarm()
+            Notify("ฟาร์มเหล็ก ON", "เปิดแล้ว", "wrench")
+        else
+            Notify("ฟาร์มเหล็ก OFF", "หยุดแล้ว", "wrench")
+        end
+    end,
+})
+
+-- ── GARBAGE ──
+FarmTab:Section({ Title = "ฟาร์มขยะ", TextSize = 14, FontWeight = "SemiBold" })
+
+local function FindAvailableGarbage()
+    local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("Garbage")
+    if not folder then return nil, nil end
+    for _, g in pairs(folder:GetChildren()) do
+        if not g:IsA("BasePart") then continue end
+        local key = GetPosKey(g.Position)
+        if not Config.Farm.Garbage.Visited[key] then return g, key end
+    end
+    return nil, nil
+end
+
+local function StartGarbageFarm()
+    task.spawn(function()
+        while Config.Farm.Garbage.Enabled do
+            local truck = GetTruckForFarming()
+            if truck then
+                pcall(function()
+                    game.ReplicatedStorage.Remote.data:FireServer("post", "Garbage", Config.Farm.Settings.CollectAmount, truck)
+                end)
+            else
+                Notify("ไม่พบรถ", "ส่งขยะไม่ได้", "alert-triangle")
+            end
+            task.wait(Config.Farm.Settings.TeleportDelay)
+        end
+    end)
+    task.spawn(function()
+        while Config.Farm.Garbage.Enabled do
+            local folder = workspace:FindFirstChild("JOB") and workspace.JOB:FindFirstChild("JOB") and workspace.JOB.JOB:FindFirstChild("SCRIPT") and workspace.JOB.JOB.SCRIPT:FindFirstChild("Garbage")
+            if not folder then task.wait(1) continue end
+            local items = {}
+            for _, g in pairs(folder:GetChildren()) do
+                if g:IsA("BasePart") then table.insert(items, g) end
+            end
+            if #items == 0 then task.wait(1) continue end
+
+            if Config.Farm.Settings.FarmMode == 2 then
+                if Config.Farm.Garbage.Index > #items then
+                    Config.Farm.Garbage.Index = 1
+                    Config.Farm.Garbage.TeleportCounter = 0
+                    task.wait(0.5)
+                    continue
+                end
+                local g = items[Config.Farm.Garbage.Index]
+                Config.Farm.Garbage.TeleportCounter += 1
+                if TeleportAndJump(g.CFrame) then
+                    if Config.Farm.Garbage.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                        Config.Farm.Garbage.Index += 1
+                        Config.Farm.Garbage.TeleportCounter = 0
+                    end
+                    task.wait(Config.Farm.Settings.TeleportDelay)
+                end
+            else
+                if CountVisited(Config.Farm.Garbage.Visited) >= #items then
+                    Config.Farm.Garbage.Visited = {}
+                    task.wait(0.5)
+                end
+                local g, key = FindAvailableGarbage()
+                if g then
+                    Config.Farm.Garbage.TeleportCounter += 1
+                    if TeleportAndJump(g.CFrame) then
+                        if Config.Farm.Garbage.TeleportCounter >= Config.Farm.Settings.TeleportCount then
+                            Config.Farm.Garbage.Visited[key] = true
+                            Config.Farm.Garbage.TeleportCounter = 0
+                        end
+                        task.wait(Config.Farm.Settings.TeleportDelay)
+                    end
+                else
+                    Config.Farm.Garbage.Visited = {}
+                    Config.Farm.Garbage.TeleportCounter = 0
+                    task.wait(0.5)
+                end
+            end
+        end
+    end)
+end
+
+FarmTab:Toggle({
+    Title    = "ฟาร์มขยะอัตโนมัติ",
+    Desc     = "วาปเก็บขยะแล้วส่งรถ",
+    Value    = false,
+    Callback = function(state)
+        Config.Farm.Garbage.Enabled = state
+        if state then
+            StartGarbageFarm()
+            Notify("ฟาร์มขยะ ON", "เปิดแล้ว", "trash")
+        else
+            Notify("ฟาร์มขยะ OFF", "หยุดแล้ว", "trash")
+        end
+    end,
+})
+
+-- ==================== TELEPORT TAB ====================
+
+local SavedCFrame = nil
+
+local function TeleportToCFrame(cf)
+    local char = game.Players.LocalPlayer.Character
+    if not char then Notify("ผิดพลาด", "ไม่พบตัวละคร", "alert-triangle") return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then Notify("ผิดพลาด", "ไม่พบ HumanoidRootPart", "alert-triangle") return end
+    hrp.CFrame = cf
+end
+
+TeleportTab:Section({ Title = "เซฟตำแหน่ง", TextSize = 14, FontWeight = "SemiBold" })
+
+TeleportTab:Button({
+    Title    = "เซฟตำแหน่งปัจจุบัน",
+    Icon     = "bookmark",
+    Desc     = "บันทึก CFrame ณ จุดที่ยืนอยู่",
+    Callback = function()
+        local char = game.Players.LocalPlayer.Character
+        if not char then Notify("ผิดพลาด", "ไม่พบตัวละคร", "alert-triangle") return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then Notify("ผิดพลาด", "ไม่พบ HumanoidRootPart", "alert-triangle") return end
+        SavedCFrame = hrp.CFrame
+        local p = SavedCFrame.Position
+        Notify("เซฟสำเร็จ", string.format("X:%.1f Y:%.1f Z:%.1f", p.X, p.Y, p.Z), "bookmark", 4)
+    end,
+})
+
+TeleportTab:Space()
+
+TeleportTab:Button({
+    Title    = "วาปกลับตำแหน่งที่เซฟ",
+    Icon     = "corner-down-left",
+    Desc     = "เทเลพอตกลับจุดที่บันทึกไว้",
+    Callback = function()
+        if not SavedCFrame then
+            Notify("ผิดพลาด", "ยังไม่ได้เซฟตำแหน่ง!", "alert-triangle")
+            return
+        end
+        TeleportToCFrame(SavedCFrame)
+        local p = SavedCFrame.Position
+        Notify("วาปกลับแล้ว", string.format("X:%.1f Y:%.1f Z:%.1f", p.X, p.Y, p.Z), "corner-down-left", 4)
+    end,
+})
+
+TeleportTab:Section({ Title = "จุดหมาย", TextSize = 14, FontWeight = "SemiBold" })
+
+local Destinations = {
+    { Title = "การาช",    Icon = "car",      CF = CFrame.new(303.565521,  66.1486893,  -906.82373,   0.767768562,  6.71885871e-08,  -0.640727282, -5.10625604e-08, 1,  4.36759322e-08,   0.640727282, -8.15832679e-10,  0.767768562) },
+    { Title = "เลเบลฟ้า", Icon = "map-pin",  CF = CFrame.new(-900.60968,  88.9132462,  1224.23682,  -0.907460213, -1.95295904e-08, -0.420138031, -9.32648447e-09, 1, -2.63393822e-08,   0.420138031, -1.99835295e-08, -0.907460213) },
+    { Title = "สภา",      Icon = "landmark", CF = CFrame.new(5547.8877,   683.3078,    1496.87927,  -0.267395705,  1.94510399e-08,  0.963586807,  5.54390418e-08,  1, -4.80172435e-09,  -0.963586807,  5.21363681e-08, -0.267395705) },
+    { Title = "เลเบลแดง", Icon = "map-pin",  CF = CFrame.new(6889.5166,   285.729034, -2287.85767,  -0.0161244199, 1.21794734e-08,  0.999870002, -4.29730243e-08,  1, -1.28740627e-08,  -0.999870002, -4.31750244e-08, -0.0161244199) },
+    { Title = "ปั้มบนสุด", Icon = "fuel",     CF = CFrame.new(7985.23975,  264.948853, -781.145386,  -0.745238066, -4.59924507e-08, -0.666798472, -1.86272047e-08,  1, -4.81566005e-08,   0.666798472, -2.3467539e-08,  -0.745238066) },
 }
 
---// Animations [Window]
-function Animations:Open(Window, Transparency, UseCurrentSize)
-	local Original   = (UseCurrentSize and Window.Size) or Setup.Size
-	local Multiplied = Multiply(Original, 1.1)
-	local Shadow     = Window:FindFirstChildOfClass("UIStroke")
-
-	SetProperty(Shadow, { Transparency = 1 })
-	SetProperty(Window, {
-		Size             = Multiplied,
-		GroupTransparency = 1,
-		Visible          = true,
-	})
-
-	Tween(Shadow, .25, { Transparency = 0.5 })
-	Tween(Window, .25, {
-		Size             = Original,
-		GroupTransparency = Transparency or 0,
-	})
+for i, dest in ipairs(Destinations) do
+    TeleportTab:Button({
+        Title    = "วาปไป" .. dest.Title,
+        Icon     = dest.Icon,
+        Callback = function()
+            TeleportToCFrame(dest.CF)
+            Notify("เทเลพอต", "วาปไป" .. dest.Title .. "แล้ว!", "map-pin")
+        end,
+    })
+    if i < #Destinations then
+        TeleportTab:Space()
+    end
 end
 
-function Animations:Close(Window)
-	local Original   = Window.Size
-	local Multiplied = Multiply(Original, 1.1)
-	local Shadow     = Window:FindFirstChildOfClass("UIStroke")
+-- ==================== ACTIVITY TAB ====================
 
-	Tween(Shadow, .25, { Transparency = 1 })
-	Tween(Window, .25, {
-		Size             = Multiplied,
-		GroupTransparency = 1,
-	})
+ActivityTab:Section({ Title = "วาปไปกิจกรรม", TextSize = 14, FontWeight = "SemiBold" })
 
-	task.wait(.25)
-	Window.Size    = Original
-	Window.Visible = false
+ActivityTab:Button({
+    Title    = "วาปไปชนะปากัว",
+    Icon     = "swords",
+    Callback = function()
+        TeleportToCFrame(CFrame.new(
+            -694.090698, 188.338425, 571.563782,
+            0.0845197961, -4.88692606e-08, -0.996421814,
+            3.67553454e-08, 1, -4.59270417e-08,
+            0.996421814, -3.27420828e-08, 0.0845197961
+        ))
+        Notify("เทเลพอต", "วาปไปชนะปากัวแล้ว!", "swords")
+    end,
+})
+
+ActivityTab:Space()
+
+ActivityTab:Button({
+    Title    = "วาปไปลักกี้บอม",
+    Icon     = "bomb",
+    Callback = function()
+        TeleportToCFrame(CFrame.new(
+            -391.9711, 66.0340271, 578.966553,
+            -0.0431948975, -4.21879598e-09, -0.999066651,
+            8.60502336e-09, 1, -4.59477745e-09,
+            0.999066651, -8.79546302e-09, -0.0431948975
+        ))
+        Notify("เทเลพอต", "วาปไปลักกี้บอมแล้ว!", "bomb")
+    end,
+})
+
+-- ==================== CAR TAB ====================
+
+local CarConfig = {
+    ExcludedCars    = {},
+    WheelSize       = Vector3.new(10, 10, 10),
+    Enabled         = false,
+    HighlightEnabled = true,
+    HighlightColor  = Color3.fromRGB(255, 165, 0),
+}
+
+local function GetAllCars()
+    local t = {}
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then return t end
+    for _, car in pairs(keepCar:GetChildren()) do
+        table.insert(t, car.Name)
+    end
+    return t
 end
 
-function Animations:Component(Component, Custom)
-	Connect(Component.InputBegan, function()
-		if Custom then
-			Tween(Component, .2, { Transparency = .8 })
-		else
-			Tween(Component, .2, { BackgroundColor3 = Theme.Hover })
-		end
-	end)
+local function ApplyWheelSize(size)
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then
+        Notify("ผิดพลาด", "ไม่พบ KeepCar ใน workspace", "alert-triangle")
+        return 0
+    end
 
-	Connect(Component.InputEnded, function()
-		if Custom then
-			Tween(Component, .2, { Transparency = 1 })
-		else
-			Tween(Component, .2, { BackgroundColor3 = Theme.Component })
-		end
-	end)
+    local excludeList = {}
+    for _, name in pairs(CarConfig.ExcludedCars) do
+        excludeList[name] = true
+    end
+
+    local count = 0
+    local suspNames = { "SuspensionFL", "SuspensionFR", "SuspensionRL", "SuspensionRR" }
+
+    for _, car in pairs(keepCar:GetChildren()) do
+        if excludeList[car.Name] then continue end
+        local chassis = car:FindFirstChild("Chassis")
+        if not chassis then continue end
+
+        for _, suspName in ipairs(suspNames) do
+            local susp = chassis:FindFirstChild(suspName)
+            if not susp then continue end
+
+            -- หา Wheel
+            local wheel = susp:FindFirstChild("Wheel")
+            if not wheel then
+                for _, desc in pairs(susp:GetDescendants()) do
+                    if desc:IsA("BasePart") then
+                        wheel = desc
+                        break
+                    end
+                end
+            end
+            if not wheel then continue end
+
+            -- ปรับ Size
+            pcall(function() wheel.Size = size end)
+
+            -- Highlight ติดที่ wheel โดยตรง ใช้ SelectionBox แทนถ้า Highlight ไม่ขึ้น
+            -- ลบ highlight/selectionbox เก่าออกก่อน
+            for _, old in pairs(wheel:GetChildren()) do
+                if old:IsA("Highlight") or old:IsA("SelectionBox") then
+                    old:Destroy()
+                end
+            end
+
+            if CarConfig.HighlightEnabled then
+                -- ใช้ทั้ง Highlight และ SelectionBox เหมือนระบบ hitbox คน
+                local hl = Instance.new("Highlight")
+                hl.Adornee             = wheel
+                hl.FillColor           = CarConfig.HighlightColor
+                hl.OutlineColor        = CarConfig.HighlightColor
+                hl.FillTransparency    = 0.5
+                hl.OutlineTransparency = 0
+                hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Enabled             = true
+                hl.Parent              = wheel
+
+                local sb = Instance.new("SelectionBox")
+                sb.Adornee       = wheel
+                sb.Color3        = CarConfig.HighlightColor
+                sb.LineThickness = 0.05
+                sb.Transparency  = 0
+                sb.Visible       = true
+                sb.Parent        = wheel
+            end
+
+            count += 1
+        end
+    end
+
+    if count == 0 then
+        Notify("คำเตือน", "ไม่พบล้อในรถ", "alert-triangle")
+    end
+
+    return count
 end
 
---// Library [Window]
-
-function Library:CreateWindow(Settings)
-	local Window  = Clone(Screen:WaitForChild("Main"))
-	local Sidebar = Window:FindFirstChild("Sidebar")
-	local Holder  = Window:FindFirstChild("Main")
-	local BG      = Window:FindFirstChild("BackgroundShadow")
-	local Tab     = Sidebar:FindFirstChild("Tab")
-
-	local Options   = {}
-	local Examples  = {}
-	local Opened    = true
-	local Minimized = false  -- แยก state พับออกจาก Opened
-	local Maximized = false
-	local BlurEnabled = false
-
-	for _, Example in next, Window:GetDescendants() do
-		if Example.Name:find("Example") and not Examples[Example.Name] then
-			Examples[Example.Name] = Example
-		end
-	end
-
-	--// Setup
-	Drag(Window)
-	Resizeable(Window, Vector2.new(480, 320), Vector2.new(9e9, 9e9))
-	Setup.Transparency = Settings.Transparency or 0
-	Setup.Size         = Settings.Size or UDim2.new(0, 660, 0, 460)  -- ใหญ่ขึ้นอีก
-	Setup.ThemeMode    = Settings.Theme or "Dark"
-
-	-- รวม FontSize จาก Settings เข้ากับ default
-	if Settings.FontSize then
-		for k, v in next, Settings.FontSize do
-			Setup.FontSize[k] = v
-		end
-	end
-
-	-- apply font size + font weight ทั้ง UI
-	local function ApplyFontSizes(root)
-		for _, obj in next, root:GetDescendants() do
-			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-				local name       = obj.Name
-				local parentName = obj.Parent and obj.Parent.Name or ""
-
-				-- ตัวหนา (GothamBold) สำหรับ Title และ Tab
-				if name == "Title" or name == "Section" then
-					obj.TextSize = Setup.FontSize.Title
-					obj.Font     = Enum.Font.GothamBold
-				elseif parentName == "Tab" or name == "TextLabel" then
-					obj.TextSize = Setup.FontSize.Tab
-					obj.Font     = Enum.Font.GothamSemibold
-				elseif name == "Description" then
-					obj.TextSize = Setup.FontSize.Description
-					obj.Font     = Enum.Font.Gotham
-				else
-					obj.TextSize = Setup.FontSize.ComponentTitle
-					obj.Font     = Enum.Font.GothamSemibold
-				end
-			end
-		end
-	end
-
-	if Settings.Blurring then
-		Blurs[Settings.Title] = Blur.new(Window, 5)
-		BlurEnabled = true
-	end
-
-	if Settings.MinimizeKeybind then
-		Setup.Keybind = Settings.MinimizeKeybind
-	end
-
-	--// ฟังก์ชัน Toggle เปิด/ปิด window (keybind)
-	local function ToggleWindow()
-		if Opened then
-			-- แก้: ตรวจสอบ BlurEnabled ก่อนเสมอ
-			if BlurEnabled and Blurs[Settings.Title] and Blurs[Settings.Title].root then
-				Blurs[Settings.Title].root.Parent = nil
-			end
-			Opened = false
-			Animations:Close(Window)
-		else
-			Animations:Open(Window, Setup.Transparency)
-			Opened = true
-			if BlurEnabled and Blurs[Settings.Title] and Blurs[Settings.Title].root then
-				Blurs[Settings.Title].root.Parent = workspace.CurrentCamera
-			end
-		end
-	end
-
-	--// ปุ่ม 3 สี (แดง / ส้ม / เขียว)
-	-- แดง  = ทำลาย UI ทิ้งทันที
-	-- ส้ม  = พับ (ซ่อน) /펼펼치다 UI
-	-- เขียว = Maximize / Restore
-
-	for _, Button in next, Sidebar.Top.Buttons:GetChildren() do
-		if Button:IsA("TextButton") then
-			local Name = Button.Name
-			Animations:Component(Button, true)
-
-			Connect(Button.MouseButton1Click, function()
-
-				if Name == "Close" or Name == "Red" then
-					-- แดง: ลบ UI ออกไปเลย ไม่แค่ซ่อน
-					if BlurEnabled and Blurs[Settings.Title] and Blurs[Settings.Title].root then
-						Blurs[Settings.Title].root:Destroy()
-					end
-					Destroy(Window)
-
-				elseif Name == "Minimize" or Name == "Orange" then
-					-- ส้ม: พับ (ซ่อน content เหลือแค่ titlebar) หรือถ้าพับอยู่ก็펼ด
-					if not Minimized then
-						Minimized = true
-						-- ซ่อนส่วน content เหลือแค่ titlebar
-						if Holder then
-							Tween(Holder, .2, { Size = UDim2.new(0, 0, 0, 0) })
-							task.delay(.2, function() Holder.Visible = false end)
-						end
-						if Sidebar then
-							-- เหลือแค่แถบบนสุด
-							local OriginalSidebarSize = Sidebar.Size
-							Tween(Window, .2, {
-								Size = UDim2.new(
-									Window.Size.X.Scale,
-									Window.Size.X.Offset,
-									0,
-									Sidebar.Top and Sidebar.Top.AbsoluteSize.Y or 40
-								)
-							})
-						end
-					else
-						Minimized = false
-						-- คืนขนาดเดิม
-						if Holder then
-							Holder.Visible = true
-							Tween(Holder, .2, { Size = UDim2.new(1, 0, 1, 0) })
-						end
-						Tween(Window, .2, { Size = Setup.Size })
-					end
-
-				elseif Name == "Maximize" or Name == "Green" then
-					-- เขียว: Maximize / Restore
-					if Maximized then
-						Maximized = false
-						Tween(Window, .15, { Size = Setup.Size, Position = UDim2.fromScale(0.5, 0.5) })
-					else
-						Maximized = true
-						Tween(Window, .15, { Size = UDim2.fromScale(1, 1), Position = UDim2.fromScale(0.5, 0.5) })
-					end
-				end
-
-			end)
-		end
-	end
-
-	-- Keybind toggle
-	Connect(Services.Input.InputBegan, function(Input, Focused)
-		if (Input == Setup.Keybind or Input.KeyCode == Setup.Keybind) and not Focused then
-			ToggleWindow()
-		end
-	end)
-
-	--// Tab Functions
-
-	function Options:SetTab(Name)
-		for _, Button in next, Tab:GetChildren() do
-			if Button:IsA("TextButton") then
-				local IsOpen    = Button.Value
-				local SameName  = (Button.Name == Name)
-				local Padding   = Button:FindFirstChildOfClass("UIPadding")
-
-				if SameName and not IsOpen.Value then
-					Tween(Padding, .25, { PaddingLeft = UDim.new(0, 25) })
-					Tween(Button, .25, { BackgroundTransparency = 0.9, Size = UDim2.new(1, -15, 0, 30) })
-					IsOpen.Value = true
-				elseif not SameName and IsOpen.Value then
-					Tween(Padding, .25, { PaddingLeft = UDim.new(0, 20) })
-					Tween(Button, .25, { BackgroundTransparency = 1, Size = UDim2.new(1, -44, 0, 30) })
-					IsOpen.Value = false
-				end
-			end
-		end
-
-		for _, Main in next, Holder:GetChildren() do
-			if Main:IsA("CanvasGroup") then
-				local IsOpen   = Main.Value
-				local SameName = (Main.Name == Name)
-				local Scroll   = Main:FindFirstChild("ScrollingFrame")
-
-				if SameName and not IsOpen.Value then
-					IsOpen.Value = true
-					Main.Visible = true
-					Tween(Main, .3, { GroupTransparency = 0 })
-					Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) })
-				elseif not SameName and IsOpen.Value then
-					IsOpen.Value = false
-					Tween(Main, .15, { GroupTransparency = 1 })
-					Tween(Scroll["UIPadding"], .15, { PaddingTop = UDim.new(0, 15) })
-					task.delay(.2, function() Main.Visible = false end)
-				end
-			end
-		end
-	end
-
-	function Options:AddTabSection(Settings)
-		local Example = Examples["SectionExample"]
-		local Section = Clone(Example)
-
-		StoredInfo["Sections"][Settings.Name] = Settings.Order
-		SetProperty(Section, {
-			Parent      = Example.Parent,
-			Text        = Settings.Name,
-			Name        = Settings.Name,
-			LayoutOrder = Settings.Order,
-			Visible     = true,
-		})
-	end
-
-	function Options:AddTab(Settings)
-		if StoredInfo["Tabs"][Settings.Title] then
-			error("[UI LIB]: A tab with the same name has already been created")
-		end
-
-		local Example, MainExample = Examples["TabButtonExample"], Examples["MainExample"]
-		local Section = StoredInfo["Sections"][Settings.Section]
-		local Main    = Clone(MainExample)
-		local TabBtn  = Clone(Example)
-
-		if not Settings.Icon then
-			Destroy(TabBtn["ICO"])
-		else
-			SetProperty(TabBtn["ICO"], { Image = Settings.Icon })
-		end
-
-		StoredInfo["Tabs"][Settings.Title] = { TabBtn }
-		SetProperty(TabBtn["TextLabel"], { Text = Settings.Title })
-
-		SetProperty(Main, {
-			Parent = MainExample.Parent,
-			Name   = Settings.Title,
-		})
-
-		SetProperty(TabBtn, {
-			Parent      = Example.Parent,
-			LayoutOrder = Section or (#StoredInfo["Sections"] + 1),
-			Name        = Settings.Title,
-			Visible     = true,
-		})
-
-		Connect(TabBtn.MouseButton1Click, function()
-			Options:SetTab(TabBtn.Name)
-		end)
-
-		return Main.ScrollingFrame
-	end
-
-	--// Notifications
-
-	function Options:Notify(Settings)
-		local Notification = Clone(Components["Notification"])
-		local Title, Description = Options:GetLabels(Notification)
-		local Timer = Notification["Timer"]
-
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Notification, { Parent = Screen["Frame"] })
-		ApplyFontSizes(Notification)
-
-		task.spawn(function()
-			local Duration = Settings.Duration or 2
-
-			Animations:Open(Notification, Setup.Transparency, true)
-			Tween(Timer, Duration, { Size = UDim2.new(0, 0, 0, 4) })
-			task.wait(Duration)
-			Animations:Close(Notification)
-			task.wait(1)
-			Notification:Destroy()
-		end)
-	end
-
-	--// Component Helpers
-
-	function Options:GetLabels(Component)
-		local Labels = Component:FindFirstChild("Labels")
-		return Labels.Title, Labels.Description
-	end
-
-	function Options:AddSection(Settings)
-		local Section = Clone(Components["Section"])
-		SetProperty(Section, {
-			Text    = Settings.Name,
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	function Options:AddButton(Settings)
-		local Button = Clone(Components["Button"])
-		local Title, Description = Options:GetLabels(Button)
-
-		Connect(Button.MouseButton1Click, Settings.Callback)
-		Animations:Component(Button)
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Button, {
-			Name    = Settings.Title,
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	function Options:AddInput(Settings)
-		local Input   = Clone(Components["Input"])
-		local Title, Description = Options:GetLabels(Input)
-		local TextBox = Input["Main"]["Input"]
-
-		Connect(Input.MouseButton1Click, function()
-			TextBox:CaptureFocus()
-		end)
-
-		Connect(TextBox.FocusLost, function()
-			Settings.Callback(TextBox.Text)
-		end)
-
-		Animations:Component(Input)
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Input, {
-			Name    = Settings.Title,
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	function Options:AddToggle(Settings)
-		local Toggle = Clone(Components["Toggle"])
-		local Title, Description = Options:GetLabels(Toggle)
-
-		local On     = Toggle["Value"]
-		local Main   = Toggle["Main"]
-		local Circle = Main["Circle"]
-
-		local function Set(Value)
-			if Value then
-				Tween(Main,   .2, { BackgroundColor3 = Theme.Accent })
-				Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) })
-			else
-				Tween(Main,   .2, { BackgroundColor3 = Theme.Interactables })
-				Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) })
-			end
-			On.Value = Value
-		end
-
-		Connect(Toggle.MouseButton1Click, function()
-			local Value = not On.Value
-			Set(Value)
-			Settings.Callback(Value)
-		end)
-
-		Animations:Component(Toggle)
-		Set(Settings.Default)
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Toggle, {
-			Name    = Settings.Title,
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	function Options:AddKeybind(Settings)
-		local Dropdown = Clone(Components["Keybind"])
-		local Title, Description = Options:GetLabels(Dropdown)
-		local Bind = Dropdown["Main"].Options
-
-		local Mouse = { Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3 }
-		local Types = {
-			["Mouse"] = "Enum.UserInputType.MouseButton",
-			["Key"]   = "Enum.KeyCode.",
-		}
-
-		Connect(Dropdown.MouseButton1Click, function()
-			local Finished = false
-			local Detect
-
-			SetProperty(Bind, { Text = "..." })
-
-			Detect = Connect(Services.Input.InputBegan, function(Key, Focused)
-				if not Finished and not Focused then
-					Finished = true
-					Detect:Disconnect()  -- แก้: disconnect หลังจากได้ input แล้ว
-
-					local InputType = Key.UserInputType
-
-					if table.find(Mouse, InputType) then
-						Settings.Callback(Key)
-						SetProperty(Bind, {
-							Text = tostring(InputType):gsub(Types.Mouse, "MB")
-						})
-					elseif InputType == Enum.UserInputType.Keyboard then
-						Settings.Callback(Key)
-						SetProperty(Bind, {
-							Text = tostring(Key.KeyCode):gsub(Types.Key, "")
-						})
-					end
-				end
-			end)
-		end)
-
-		Animations:Component(Dropdown)
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Dropdown, {
-			Name    = Settings.Title,
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	function Options:AddDropdown(Settings)
-		local Dropdown = Clone(Components["Dropdown"])
-		local Title, Description = Options:GetLabels(Dropdown)
-		local Text = Dropdown["Main"].Options
-
-		Connect(Dropdown.MouseButton1Click, function()
-			local Example = Clone(Examples["DropdownExample"])
-			local Buttons = Example["Top"]["Buttons"]
-
-			Tween(BG, .25, { BackgroundTransparency = 0.6 })
-			SetProperty(Example, { Parent = Window })
-			Animations:Open(Example, 0, true)
-
-			-- ปุ่มปิด dropdown
-			for _, Button in next, Buttons:GetChildren() do
-				if Button:IsA("TextButton") then
-					Animations:Component(Button, true)
-					Connect(Button.MouseButton1Click, function()
-						Tween(BG, .25, { BackgroundTransparency = 1 })
-						Animations:Close(Example)
-						task.wait(2)
-						Destroy(Example)
-					end)
-				end
-			end
-
-			-- แก้: แต่ละ option button จัดการ state อิสระ ไม่ผิดพลาดเรื่อง selected
-			local SelectedButton = nil
-
-			for Index, Option in next, Settings.Options do
-				local Button = Clone(Examples["DropdownButtonExample"])
-				local BTitle, BDesc = Options:GetLabels(Button)
-
-				Animations:Component(Button)
-				SetProperty(BTitle, { Text = Index })
-				SetProperty(Button, { Parent = Example.ScrollingFrame, Visible = true })
-				if BDesc then Destroy(BDesc) end
-
-				Connect(Button.MouseButton1Click, function()
-					-- แก้: deselect ปุ่มเดิม แล้ว select ปุ่มใหม่
-					if SelectedButton and SelectedButton ~= Button then
-						Tween(SelectedButton, .25, { BackgroundColor3 = Theme.Component })
-					end
-
-					SelectedButton = Button
-					Tween(Button, .25, { BackgroundColor3 = Theme.Interactables })
-					Settings.Callback(Option)
-					Text.Text = Index
-
-					task.delay(.1, function()
-						Tween(BG, .25, { BackgroundTransparency = 1 })
-						Animations:Close(Example)
-						task.wait(2)
-						Destroy(Example)
-					end)
-				end)
-			end
-		end)
-
-		Animations:Component(Dropdown)
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Dropdown, {
-			Name    = Settings.Title,
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	function Options:AddSlider(Settings)
-		local Slider = Clone(Components["Slider"])
-		local Title, Description = Options:GetLabels(Slider)
-
-		local Main   = Slider["Slider"]
-		local Amount = Main["Main"].Input
-		local Slide  = Main["Slide"]
-		local Fire   = Slide["Fire"]
-		local Fill   = Slide["Highlight"]
-
-		local Active = false
-		local Value  = 0
-
-		local function SetNumber(Number)
-			if Settings.AllowDecimals then
-				local Power = 10 ^ (Settings.DecimalAmount or 2)
-				Number = math.floor(Number * Power + 0.5) / Power
-			else
-				Number = math.round(Number)
-			end
-			return Number
-		end
-
-		local function Update(Number)
-			local Scale = (Player.Mouse.X - Slide.AbsolutePosition.X) / Slide.AbsoluteSize.X
-			Scale = math.clamp(Scale, 0, 1)
-
-			if Number then
-				Number = math.clamp(Number, 0, Settings.MaxValue)
-			end
-
-			Value       = SetNumber(Number or (Scale * Settings.MaxValue))
-			Amount.Text = Value
-			Fill.Size   = UDim2.fromScale((Number and Number / Settings.MaxValue) or Scale, 1)
-			Settings.Callback(Value)
-		end
-
-		local function Activate()
-			Active = true
-			repeat task.wait()
-				Update()
-			until not Active
-		end
-
-		Connect(Amount.FocusLost, function()
-			Update(tonumber(Amount.Text) or 0)
-		end)
-
-		Connect(Fire.MouseButton1Down, Activate)
-		Connect(Services.Input.InputEnded, function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 or
-				Input.UserInputType == Enum.UserInputType.Touch then
-				Active = false
-			end
-		end)
-
-		Fill.Size = UDim2.fromScale(Value, 1)
-		Animations:Component(Slider)
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Slider, {
-			Name    = Settings.Title,
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	function Options:AddParagraph(Settings)
-		local Paragraph = Clone(Components["Paragraph"])
-		local Title, Description = Options:GetLabels(Paragraph)
-
-		SetProperty(Title,       { Text = Settings.Title })
-		SetProperty(Description, { Text = Settings.Description })
-		SetProperty(Paragraph, {
-			Parent  = Settings.Tab,
-			Visible = true,
-		})
-	end
-
-	--// Theme Apply System (ใช้ชื่อ ThemeApply เพื่อไม่ชนกับ Preset Themes)
-	local ThemeApply = {
-		Names = {
-			["Paragraph"] = function(Label)
-				if Label:IsA("TextButton") then
-					Label.BackgroundColor3 = Theme.Component
-				end
-			end,
-			["Title"] = function(Label)
-				if Label:IsA("TextLabel") then Label.TextColor3 = Theme.Title end
-			end,
-			["Description"] = function(Label)
-				if Label:IsA("TextLabel") then Label.TextColor3 = Theme.Description end
-			end,
-			["Section"] = function(Label)
-				if Label:IsA("TextLabel") then Label.TextColor3 = Theme.Title end
-			end,
-			["Options"] = function(Label)
-				if Label:IsA("TextLabel") and Label.Parent.Name == "Main" then
-					Label.TextColor3 = Theme.Title
-				end
-			end,
-			["Notification"] = function(Label)
-				if Label:IsA("CanvasGroup") then
-					Label.BackgroundColor3 = Theme.Primary
-					Label.UIStroke.Color   = Theme.Outline
-				end
-			end,
-			["TextLabel"] = function(Label)
-				if Label:IsA("TextLabel") and Label.Parent:FindFirstChild("List") then
-					Label.TextColor3 = Theme.Tab
-				end
-			end,
-			["Main"] = function(Label)
-				if Label:IsA("Frame") then
-					if Label.Parent == Window then
-						Label.BackgroundColor3 = Theme.Secondary
-					elseif Label.Parent:FindFirstChild("Value") then
-						local Toggle = Label.Parent.Value
-						local Circle = Label:FindFirstChild("Circle")
-						if not Toggle.Value then
-							Label.BackgroundColor3 = Theme.Interactables
-							if Circle then Circle.BackgroundColor3 = Theme.Primary end
-						else
-							Label.BackgroundColor3 = Theme.Accent
-						end
-					else
-						Label.BackgroundColor3 = Theme.Interactables
-					end
-				elseif Label:FindFirstChild("Padding") then
-					Label.TextColor3 = Theme.Title
-				end
-			end,
-			["Amount"] = function(Label)
-				if Label:IsA("Frame") then Label.BackgroundColor3 = Theme.Interactables end
-			end,
-			["Slide"] = function(Label)
-				if Label:IsA("Frame") then Label.BackgroundColor3 = Theme.Interactables end
-			end,
-			["Input"] = function(Label)
-				if Label:IsA("TextLabel") then
-					Label.TextColor3 = Theme.Title
-				elseif Label:FindFirstChild("Labels") then
-					Label.BackgroundColor3 = Theme.Component
-				elseif Label:IsA("TextBox") and Label.Parent.Name == "Main" then
-					Label.TextColor3 = Theme.Title
-				end
-			end,
-			["Outline"] = function(Stroke)
-				if Stroke:IsA("UIStroke") then Stroke.Color = Theme.Outline end
-			end,
-			["DropdownExample"] = function(Label)
-				Label.BackgroundColor3 = Theme.Secondary
-			end,
-			["Underline"] = function(Label)
-				if Label:IsA("Frame") then Label.BackgroundColor3 = Theme.Outline end
-			end,
-		},
-
-		Classes = {
-			["ImageLabel"] = function(Label)
-				if Label.Image ~= "rbxassetid://6644618143" then
-					Label.ImageColor3 = Theme.Icon
-				end
-			end,
-			["TextLabel"] = function(Label)
-				if Label:FindFirstChild("Padding") then
-					Label.TextColor3 = Theme.Title
-				end
-			end,
-			["TextButton"] = function(Label)
-				if Label:FindFirstChild("Labels") then
-					Label.BackgroundColor3 = Theme.Component
-				end
-			end,
-			["ScrollingFrame"] = function(Label)
-				Label.ScrollBarImageColor3 = Theme.Component
-			end,
-		},
-	}
-
-	function Options:SetTheme(Info)
-		-- รับได้ทั้ง string ("Dark","Light","Red","Green","Blue") และ table custom
-		if type(Info) == "string" and Themes[Info] then
-			Theme = Themes[Info]
-		elseif type(Info) == "table" then
-			Theme = Info
-		end
-
-		Window.BackgroundColor3 = Theme.Primary
-		Holder.BackgroundColor3 = Theme.Secondary
-		Window.UIStroke.Color   = Theme.Shadow
-
-		for _, Descendant in next, Screen:GetDescendants() do
-			local NameFn  = ThemeApply.Names[Descendant.Name]
-			local ClassFn = ThemeApply.Classes[Descendant.ClassName]
-			if NameFn  then NameFn(Descendant)  end
-			if ClassFn then ClassFn(Descendant) end
-		end
-	end
-
-	--// Settings
-
-	function Options:SetSetting(Setting, Value)
-		if Setting == "Size" then
-			Window.Size = Value
-			Setup.Size  = Value
-
-		elseif Setting == "Transparency" then
-			Window.GroupTransparency = Value
-			Setup.Transparency       = Value
-
-			for _, Notification in next, Screen:GetDescendants() do
-				if Notification:IsA("CanvasGroup") and Notification.Name == "Notification" then
-					Notification.GroupTransparency = Value
-				end
-			end
-
-		elseif Setting == "Blur" then
-			-- แก้: ตรวจสอบ nil อย่างครบถ้วน
-			local AlreadyBlurred = Blurs[Settings.Title]
-			local Root = AlreadyBlurred and AlreadyBlurred["root"] or nil
-
-			if Value then
-				BlurEnabled = true
-				if not AlreadyBlurred or not Root then
-					Blurs[Settings.Title] = Blur.new(Window, 5)
-				elseif Root and not Root.Parent then
-					Root.Parent = workspace.CurrentCamera
-				end
-			elseif not Value and AlreadyBlurred and Root and Root.Parent then
-				Root.Parent = nil
-				BlurEnabled = false
-			end
-
-		elseif Setting == "Theme" then
-			-- รับได้ทั้ง string preset ("Dark","Light","Red","Green","Blue") และ table custom
-			Options:SetTheme(Value)
-
-		elseif Setting == "Keybind" then
-			Setup.Keybind = Value
-
-		else
-			warn("Tried to change a setting that doesn't exist or isn't available to change.")
-		end
-	end
-
-	SetProperty(Window, { Size = Setup.Size, Visible = true, Parent = Screen })
-	ApplyFontSizes(Window)
-	Animations:Open(Window, Settings.Transparency or 0)
-
-	return Options
+local function ResetWheelSize()
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then return end
+    local suspNames = { "SuspensionFL", "SuspensionFR", "SuspensionRL", "SuspensionRR" }
+    for _, car in pairs(keepCar:GetChildren()) do
+        local chassis = car:FindFirstChild("Chassis")
+        if not chassis then continue end
+        for _, suspName in ipairs(suspNames) do
+            local susp = chassis:FindFirstChild(suspName)
+            if not susp then continue end
+            local wheel = susp:FindFirstChild("Wheel")
+            if not wheel then
+                for _, desc in pairs(susp:GetDescendants()) do
+                    if desc:IsA("BasePart") then wheel = desc break end
+                end
+            end
+            if not wheel then continue end
+            pcall(function() wheel.Size = Vector3.new(3, 3, 3) end)
+            for _, old in pairs(wheel:GetChildren()) do
+                if old:IsA("Highlight") or old:IsA("SelectionBox") then
+                    old:Destroy()
+                end
+            end
+        end
+    end
 end
 
-return Library
+CarTab:Section({ Title = "ยกเว้นรถ", TextSize = 14, FontWeight = "SemiBold" })
+
+local carDropdown = CarTab:Dropdown({
+    Title     = "ยกเว้นรถ (ไม่ขยายยาง)",
+    Desc      = "รถที่เลือกจะไม่ถูกขยายยาง",
+    Values    = GetAllCars(),
+    Multi     = true,
+    AllowNone = true,
+    Callback  = function(v)
+        CarConfig.ExcludedCars = v
+        if CarConfig.Enabled then
+            ApplyWheelSize(CarConfig.WheelSize)
+        end
+    end,
+})
+
+CarTab:Space()
+
+CarTab:Button({
+    Title    = "รีเฟรชรายชื่อรถ",
+    Icon     = "refresh-cw",
+    Callback = function()
+        carDropdown:Refresh(GetAllCars())
+        Notify("สำเร็จ", "อัพเดทรายชื่อรถแล้ว", "check")
+    end,
+})
+
+CarTab:Section({ Title = "ตั้งค่าขนาดยาง", TextSize = 14, FontWeight = "SemiBold" })
+
+CarTab:Input({
+    Title       = "ขนาดยาง (X,Y,Z)",
+    Desc        = "ขนาด hitbox ของล้อ เช่น 10,10,10",
+    Value       = "10,10,10",
+    Placeholder = "10,10,10",
+    Callback    = function(v)
+        local vals = {}
+        for n in string.gmatch(v, "[^,]+") do
+            local num = tonumber(n)
+            if num then table.insert(vals, num) end
+        end
+        if #vals == 3 then
+            CarConfig.WheelSize = Vector3.new(vals[1], vals[2], vals[3])
+            Notify("อัพเดท", string.format("ขนาดยาง: %.0f, %.0f, %.0f", vals[1], vals[2], vals[3]), "maximize-2")
+            if CarConfig.Enabled then
+                ApplyWheelSize(CarConfig.WheelSize)
+                HookWheels(CarConfig.WheelSize)
+            end
+        else
+            Notify("ผิดพลาด", "ใช้รูปแบบ X,Y,Z เช่น 10,10,10", "alert-triangle")
+        end
+    end,
+})
+
+CarTab:Section({ Title = "การมองเห็น", TextSize = 14, FontWeight = "SemiBold" })
+
+CarTab:Toggle({
+    Title    = "เปิดไฮไลท์ล้อ",
+    Desc     = "แสดง highlight บนล้อที่ขยายแล้ว",
+    Value    = true,
+    Callback = function(state)
+        CarConfig.HighlightEnabled = state
+        if CarConfig.Enabled then ApplyWheelSize(CarConfig.WheelSize) end
+    end,
+})
+
+CarTab:Space()
+
+CarTab:Colorpicker({
+    Title    = "สีไฮไลท์ล้อ",
+    Default  = Color3.fromRGB(255, 165, 0),
+    Callback = function(color)
+        CarConfig.HighlightColor = color
+        if CarConfig.Enabled then ApplyWheelSize(CarConfig.WheelSize) end
+    end,
+})
+
+local WheelConnections = {}
+
+local function ClearWheelConnections()
+    for _, conn in pairs(WheelConnections) do
+        conn:Disconnect()
+    end
+    WheelConnections = {}
+end
+
+local function HookWheels(size)
+    ClearWheelConnections()
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then return end
+
+    local excludeList = {}
+    for _, name in pairs(CarConfig.ExcludedCars) do excludeList[name] = true end
+
+    local suspNames = { "SuspensionFL", "SuspensionFR", "SuspensionRL", "SuspensionRR" }
+
+    for _, car in pairs(keepCar:GetChildren()) do
+        if excludeList[car.Name] then continue end
+        local chassis = car:FindFirstChild("Chassis")
+        if not chassis then continue end
+
+        for _, suspName in ipairs(suspNames) do
+            local susp = chassis:FindFirstChild(suspName)
+            if not susp then continue end
+
+            local wheel = susp:FindFirstChild("Wheel")
+            if not wheel then
+                for _, desc in pairs(susp:GetDescendants()) do
+                    if desc:IsA("BasePart") then wheel = desc break end
+                end
+            end
+            if not wheel then continue end
+
+            -- Hook ทันทีที่ Size ถูกเปลี่ยน ก็ set กลับทันที
+            local conn = wheel:GetPropertyChangedSignal("Size"):Connect(function()
+                if CarConfig.Enabled and wheel.Size ~= size then
+                    pcall(function() wheel.Size = size end)
+                end
+            end)
+            table.insert(WheelConnections, conn)
+        end
+    end
+end
+
+CarTab:Space()
+
+CarTab:Toggle({
+    Title    = "เปิดขยายยางรถ",
+    Desc     = "เปิด = ขยาย | ปิด = รีเซ็ตขนาดเดิม",
+    Value    = false,
+    Callback = function(state)
+        CarConfig.Enabled = state
+        if state then
+            local count = ApplyWheelSize(CarConfig.WheelSize)
+            HookWheels(CarConfig.WheelSize)
+            Notify("เปิดแล้ว", string.format("ขยายยาง %d ล้อ", count), "car", 5)
+        else
+            ClearWheelConnections()
+            ResetWheelSize()
+            Notify("ปิดแล้ว", "รีเซ็ตขนาดยางแล้ว", "car", 5)
+        end
+    end,
+})
+
+CarTab:Space()
+
+CarTab:Button({
+    Title    = "บังคับอัพเดทยาง",
+    Icon     = "zap",
+    Callback = function()
+        if not CarConfig.Enabled then
+            Notify("คำเตือน", "เปิด toggle ก่อน!", "alert-triangle")
+            return
+        end
+        local count = ApplyWheelSize(CarConfig.WheelSize)
+        HookWheels(CarConfig.WheelSize)
+        Notify("อัพเดท", string.format("ขยายยาง %d ล้อ", count), "zap", 5)
+    end,
+})
+
+-- ==================== SETTINGS TAB ====================
+
+SettingsTab:Section({ Title = "การตั้งค่า UI", TextSize = 14, FontWeight = "SemiBold" })
+
+SettingsTab:Keybind({
+    Title    = "ปุ่มเปิด/ปิด UI",
+    Desc     = "กดปุ่มที่ต้องการเพื่อ bind",
+    Value    = "RightControl",
+    Callback = function(v)
+        Window:SetToggleKey(Enum.KeyCode[v])
+        Notify("อัพเดทปุ่ม", "ปุ่ม: " .. v, "keyboard")
+    end,
+})
+
+SettingsTab:Space()
+
+SettingsTab:Section({ Title = "อื่นๆ", TextSize = 14, FontWeight = "SemiBold" })
+
+SettingsTab:Button({
+    Title    = "ปิด GUI",
+    Icon     = "x-circle",
+    Desc     = "ปิดสคริปต์ทั้งหมด",
+    Callback = function()
+        local dialog = Window:Dialog({
+            Icon    = "alert-triangle",
+            Title   = "ยืนยันการปิด",
+            Content = "ต้องการปิด God Weapon จริงหรือไม่?",
+            Buttons = {
+                {
+                    Title    = "ปิดเลย",
+                    Icon     = "x",
+                    Variant  = "Primary",
+                    Callback = function()
+                        Window:Destroy()
+                    end,
+                },
+                {
+                    Title    = "ยกเลิก",
+                    Icon     = "arrow-left",
+                    Variant  = "Tertiary",
+                    Callback = function() end,
+                },
+            },
+        })
+        dialog:Show()
+    end,
+})
+
+-- ==================== DONE ====================
+Notify("God Weapon v2.0 โหลดแล้ว", "กด RightControl เพื่อเปิด/ปิด UI", "sword", 5)
+print("[GodWeapon v2.0] โหลดสำเร็จ")
