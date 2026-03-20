@@ -18,91 +18,77 @@ end
 --// Important
 local Setup = {
 	Keybind = Enum.KeyCode.LeftControl,
-	Transparency = 0.2,
+	Transparency = 0,
 	ThemeMode = "Dark",
 	Size = nil,
 
-	--// Font sizes (ปรับได้ตามใจ)
+	--// Font sizes — ใหญ่ขึ้น หนาขึ้น อ่านง่าย
 	FontSize = {
-		Title       = 16,  -- ชื่อ Window / Section
-		Tab         = 15,  -- ปุ่ม Tab ด้านซ้าย
-		ComponentTitle = 15,  -- ชื่อ Button, Toggle, Slider ฯลฯ
-		Description = 13,  -- คำอธิบายใต้ component
-		Notification = 14, -- ข้อความ Notification
+		Title          = 20,  -- ชื่อ Window / Section
+		Tab            = 17,  -- ปุ่ม Tab ด้านซ้าย
+		ComponentTitle = 17,  -- ชื่อ Button, Toggle, Slider ฯลฯ
+		Description    = 14,  -- คำอธิบายใต้ component
+		Notification   = 16,  -- ข้อความ Notification
 	},
 }
 
---// Preset Themes (Dark / Light / Red / Green / Blue)
+--// Preset Themes — ดำ แดง เขียว ฟ้า (ตัดขาวออก)
 local Themes = {
 	Dark = {
-		Primary       = Color3.fromRGB(22,  22,  22 ),
-		Secondary     = Color3.fromRGB(28,  28,  28 ),
-		Component     = Color3.fromRGB(36,  36,  36 ),
-		Interactables = Color3.fromRGB(44,  44,  44 ),
-		Hover         = Color3.fromRGB(58,  58,  58 ),  -- สี hover
-		Tab           = Color3.fromRGB(180, 180, 180),
-		Title         = Color3.fromRGB(240, 240, 240),
-		Description   = Color3.fromRGB(160, 160, 160),
+		Primary       = Color3.fromRGB(14,  14,  14 ),
+		Secondary     = Color3.fromRGB(20,  20,  20 ),
+		Component     = Color3.fromRGB(30,  30,  30 ),
+		Interactables = Color3.fromRGB(40,  40,  40 ),
+		Hover         = Color3.fromRGB(56,  56,  56 ),
+		Tab           = Color3.fromRGB(170, 170, 170),
+		Title         = Color3.fromRGB(245, 245, 245),
+		Description   = Color3.fromRGB(145, 145, 145),
 		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(50,  50,  50 ),
+		Outline       = Color3.fromRGB(48,  48,  48 ),
 		Icon          = Color3.fromRGB(210, 210, 210),
-		Accent        = Color3.fromRGB(130, 120, 255),  -- toggle on / highlight
-	},
-	Light = {
-		Primary       = Color3.fromRGB(245, 245, 245),
-		Secondary     = Color3.fromRGB(235, 235, 235),
-		Component     = Color3.fromRGB(225, 225, 225),
-		Interactables = Color3.fromRGB(215, 215, 215),
-		Hover         = Color3.fromRGB(200, 200, 200),
-		Tab           = Color3.fromRGB(70,  70,  70 ),
-		Title         = Color3.fromRGB(20,  20,  20 ),
-		Description   = Color3.fromRGB(90,  90,  90 ),
-		Shadow        = Color3.fromRGB(180, 180, 180),
-		Outline       = Color3.fromRGB(200, 200, 200),
-		Icon          = Color3.fromRGB(50,  50,  50 ),
-		Accent        = Color3.fromRGB(100, 90,  220),
+		Accent        = Color3.fromRGB(120, 110, 255),
 	},
 	Red = {
-		Primary       = Color3.fromRGB(20,  12,  12 ),
-		Secondary     = Color3.fromRGB(28,  16,  16 ),
-		Component     = Color3.fromRGB(40,  22,  22 ),
-		Interactables = Color3.fromRGB(55,  28,  28 ),
-		Hover         = Color3.fromRGB(75,  35,  35 ),
-		Tab           = Color3.fromRGB(220, 160, 160),
-		Title         = Color3.fromRGB(255, 220, 220),
-		Description   = Color3.fromRGB(190, 130, 130),
+		Primary       = Color3.fromRGB(16,  10,  10 ),
+		Secondary     = Color3.fromRGB(24,  14,  14 ),
+		Component     = Color3.fromRGB(38,  20,  20 ),
+		Interactables = Color3.fromRGB(54,  26,  26 ),
+		Hover         = Color3.fromRGB(76,  32,  32 ),
+		Tab           = Color3.fromRGB(230, 150, 150),
+		Title         = Color3.fromRGB(255, 215, 215),
+		Description   = Color3.fromRGB(185, 110, 110),
 		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(80,  35,  35 ),
-		Icon          = Color3.fromRGB(255, 180, 180),
-		Accent        = Color3.fromRGB(220, 60,  60 ),
+		Outline       = Color3.fromRGB(90,  30,  30 ),
+		Icon          = Color3.fromRGB(255, 170, 170),
+		Accent        = Color3.fromRGB(230, 50,  50 ),
 	},
 	Green = {
-		Primary       = Color3.fromRGB(10,  20,  14 ),
-		Secondary     = Color3.fromRGB(14,  28,  18 ),
-		Component     = Color3.fromRGB(20,  40,  26 ),
-		Interactables = Color3.fromRGB(26,  52,  34 ),
-		Hover         = Color3.fromRGB(34,  68,  44 ),
-		Tab           = Color3.fromRGB(140, 220, 160),
-		Title         = Color3.fromRGB(200, 255, 215),
-		Description   = Color3.fromRGB(110, 180, 130),
+		Primary       = Color3.fromRGB(8,   18,  12 ),
+		Secondary     = Color3.fromRGB(12,  26,  16 ),
+		Component     = Color3.fromRGB(18,  38,  24 ),
+		Interactables = Color3.fromRGB(24,  52,  32 ),
+		Hover         = Color3.fromRGB(32,  70,  44 ),
+		Tab           = Color3.fromRGB(120, 220, 150),
+		Title         = Color3.fromRGB(190, 255, 210),
+		Description   = Color3.fromRGB(90,  170, 115),
 		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(30,  70,  40 ),
-		Icon          = Color3.fromRGB(160, 240, 180),
-		Accent        = Color3.fromRGB(50,  200, 100),
+		Outline       = Color3.fromRGB(28,  68,  38 ),
+		Icon          = Color3.fromRGB(150, 240, 175),
+		Accent        = Color3.fromRGB(40,  210, 100),
 	},
 	Blue = {
-		Primary       = Color3.fromRGB(10,  14,  26 ),
-		Secondary     = Color3.fromRGB(14,  20,  36 ),
-		Component     = Color3.fromRGB(20,  28,  52 ),
-		Interactables = Color3.fromRGB(26,  36,  68 ),
-		Hover         = Color3.fromRGB(34,  48,  90 ),
-		Tab           = Color3.fromRGB(140, 170, 240),
-		Title         = Color3.fromRGB(210, 225, 255),
-		Description   = Color3.fromRGB(110, 140, 200),
+		Primary       = Color3.fromRGB(8,   12,  24 ),
+		Secondary     = Color3.fromRGB(12,  18,  34 ),
+		Component     = Color3.fromRGB(18,  26,  50 ),
+		Interactables = Color3.fromRGB(24,  34,  68 ),
+		Hover         = Color3.fromRGB(32,  46,  92 ),
+		Tab           = Color3.fromRGB(130, 165, 245),
+		Title         = Color3.fromRGB(205, 220, 255),
+		Description   = Color3.fromRGB(100, 130, 195),
 		Shadow        = Color3.fromRGB(0,   0,   0  ),
-		Outline       = Color3.fromRGB(30,  45,  90 ),
-		Icon          = Color3.fromRGB(160, 190, 255),
-		Accent        = Color3.fromRGB(70,  130, 255),
+		Outline       = Color3.fromRGB(28,  42,  88 ),
+		Icon          = Color3.fromRGB(155, 185, 255),
+		Accent        = Color3.fromRGB(60,  125, 255),
 	},
 }
 
@@ -390,9 +376,9 @@ function Library:CreateWindow(Settings)
 
 	--// Setup
 	Drag(Window)
-	Resizeable(Window, Vector2.new(411, 271), Vector2.new(9e9, 9e9))
+	Resizeable(Window, Vector2.new(480, 320), Vector2.new(9e9, 9e9))
 	Setup.Transparency = Settings.Transparency or 0
-	Setup.Size         = Settings.Size or UDim2.new(0, 580, 0, 400) -- default ใหญ่ขึ้น
+	Setup.Size         = Settings.Size or UDim2.new(0, 660, 0, 460)  -- ใหญ่ขึ้นอีก
 	Setup.ThemeMode    = Settings.Theme or "Dark"
 
 	-- รวม FontSize จาก Settings เข้ากับ default
@@ -402,21 +388,26 @@ function Library:CreateWindow(Settings)
 		end
 	end
 
-	-- ฟังก์ชัน apply font size ทั้ง UI
+	-- apply font size + font weight ทั้ง UI
 	local function ApplyFontSizes(root)
 		for _, obj in next, root:GetDescendants() do
 			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
 				local name       = obj.Name
 				local parentName = obj.Parent and obj.Parent.Name or ""
 
+				-- ตัวหนา (GothamBold) สำหรับ Title และ Tab
 				if name == "Title" or name == "Section" then
 					obj.TextSize = Setup.FontSize.Title
-				elseif name == "Description" then
-					obj.TextSize = Setup.FontSize.Description
+					obj.Font     = Enum.Font.GothamBold
 				elseif parentName == "Tab" or name == "TextLabel" then
 					obj.TextSize = Setup.FontSize.Tab
+					obj.Font     = Enum.Font.GothamSemibold
+				elseif name == "Description" then
+					obj.TextSize = Setup.FontSize.Description
+					obj.Font     = Enum.Font.Gotham
 				else
 					obj.TextSize = Setup.FontSize.ComponentTitle
+					obj.Font     = Enum.Font.GothamSemibold
 				end
 			end
 		end
