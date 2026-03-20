@@ -231,18 +231,24 @@ end
 -- ─── Section Label ────────────────────────────────────────────────────────────
 
 local function MakeSectionLabel(text, parent, layoutOrder)
-	local label = MakeInstance("TextLabel", {
-		Size = UDim2.new(1, -24, 0, 22),
+	local wrapper = MakeInstance("Frame", {
+		Size = UDim2.new(1, 0, 0, 26),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = layoutOrder or 0,
+	}, parent)
+	MakeInstance("TextLabel", {
+		Size = UDim2.new(1, -24, 1, 0),
 		Position = UDim2.fromOffset(12, 0),
 		BackgroundTransparency = 1,
 		Text = text:upper(),
-		TextColor3 = Theme.TextTertiary,
+		TextColor3 = Theme.Accent,
+		TextTransparency = 0.45,
 		TextSize = 10,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		LayoutOrder = layoutOrder or 0,
-	}, parent)
-	return label
+	}, wrapper)
+	return wrapper
 end
 
 -- ─── Notification Toast ───────────────────────────────────────────────────────
@@ -340,7 +346,8 @@ local function FireNotification(title, description, notifType, duration)
 		Size = UDim2.new(1, 0, 0, 14),
 		BackgroundTransparency = 1,
 		Text = description,
-		TextColor3 = Theme.TextSecondary,
+		TextColor3 = accent,
+		TextTransparency = 0.35,
 		TextSize = 11,
 		Font = Enum.Font.Gotham,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -449,13 +456,14 @@ function Library:CreateWindow(cfg)
 	}, dotHolder)
 	MakeInstance("UIPadding", { PaddingLeft = UDim.new(0, 13) }, dotHolder)
 
-	local dotColors = {
-		{ Color3.fromRGB(255, 95, 87), Color3.fromRGB(220, 60, 55) },  -- close (red)
-		{ Color3.fromRGB(254, 188, 46), Color3.fromRGB(210, 150, 20) }, -- minimize (yellow)
-		{ Color3.fromRGB(40, 200, 64), Color3.fromRGB(20, 160, 40) },  -- maximize (green)
+	-- dot[1]=red(destroy) dot[2]=yellow(minimize/fold) dot[3]=green(maximize)
+	local dotDefs = {
+		{ Color3.fromRGB(255, 95, 87),  Color3.fromRGB(200, 50, 40),  "×" },
+		{ Color3.fromRGB(254, 188, 46), Color3.fromRGB(200, 140, 10), "−" },
+		{ Color3.fromRGB(40, 200, 64),  Color3.fromRGB(20, 160, 40),  "+" },
 	}
 	local dots = {}
-	for i, c in ipairs(dotColors) do
+	for i, c in ipairs(dotDefs) do
 		local dot = MakeInstance("Frame", {
 			Size = UDim2.fromOffset(12, 12),
 			BackgroundColor3 = c[1],
@@ -463,9 +471,26 @@ function Library:CreateWindow(cfg)
 			ZIndex = 4,
 		}, dotHolder)
 		MakeInstance("UICorner", { CornerRadius = UDim.new(0.5, 0) }, dot)
-		dots[i] = { frame = dot, normal = c[1], hover = c[2] }
-		dot.MouseEnter:Connect(function() Tween(dot, 0.1, { BackgroundColor3 = c[2] }) end)
-		dot.MouseLeave:Connect(function() Tween(dot, 0.1, { BackgroundColor3 = c[1] }) end)
+		-- Symbol label (hidden by default, shows on titlebar hover)
+		local sym = MakeInstance("TextLabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = c[3],
+			TextColor3 = Color3.fromRGB(80, 20, 10),
+			TextSize = 9,
+			Font = Enum.Font.GothamBold,
+			Visible = false,
+			ZIndex = 5,
+		}, dot)
+		dots[i] = { frame = dot, sym = sym, normal = c[1], hover = c[2] }
+		dot.MouseEnter:Connect(function()
+			Tween(dot, 0.1, { BackgroundColor3 = c[2] })
+			sym.Visible = true
+		end)
+		dot.MouseLeave:Connect(function()
+			Tween(dot, 0.1, { BackgroundColor3 = c[1] })
+			sym.Visible = false
+		end)
 	end
 
 	-- Window title
@@ -473,7 +498,7 @@ function Library:CreateWindow(cfg)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Text = title,
-		TextColor3 = Theme.TextTertiary,
+		TextColor3 = Theme.TextSecondary,
 		TextSize = 12,
 		Font = Enum.Font.GothamMedium,
 		ZIndex = 3,
@@ -488,6 +513,16 @@ function Library:CreateWindow(cfg)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, window)
+
+	-- Accent color bar ด้านบน sidebar (เส้นบางๆ สีสด)
+	MakeInstance("Frame", {
+		Size = UDim2.new(1, 0, 0, 2),
+		Position = UDim2.fromOffset(0, 0),
+		BackgroundColor3 = Theme.Accent,
+		BackgroundTransparency = 0.4,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+	}, sidebar)
 
 	-- Right border line on sidebar
 	MakeInstance("Frame", {
@@ -573,12 +608,41 @@ function Library:CreateWindow(cfg)
 		visible = false
 	end
 
-	-- Dot actions
+	-- ── Dot click actions ─────────────────────────────────────────────────────
+	local maximized = false
+	local preMaxSize, preMaxPos
+
+	-- RED — ลบ UI ออกจากเกมเลย
 	dots[1].frame.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then CloseWindow() end
+		if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		Tween(window, 0.15, {
+			GroupTransparency = 1,
+			Size = UDim2.new(size.X.Scale, size.X.Offset * 0.9, size.Y.Scale, size.Y.Offset * 0.9)
+		})
+		task.delay(0.18, function() screenGui:Destroy() end)
 	end)
+
+	-- YELLOW — พับ/ซ่อน window (minimize toggle)
 	dots[2].frame.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then CloseWindow() end
+		if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		if visible then CloseWindow() else OpenWindow() end
+	end)
+
+	-- GREEN — ขยายเต็มจอ / กลับขนาดเดิม
+	dots[3].frame.InputBegan:Connect(function(i)
+		if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		if not maximized then
+			preMaxSize = window.Size
+			preMaxPos  = window.Position
+			maximized  = true
+			Tween(window, 0.2, {
+				Size     = UDim2.fromScale(1, 1),
+				Position = UDim2.fromScale(0.5, 0.5),
+			})
+		else
+			maximized = false
+			Tween(window, 0.2, { Size = preMaxSize, Position = preMaxPos })
+		end
 	end)
 
 	-- Keybind toggle
@@ -606,11 +670,15 @@ function Library:CreateWindow(cfg)
 	function Win:SetTab(name)
 		for tabName, btn in pairs(tabButtons) do
 			local isActive = (tabName == name)
-			local targetBG = isActive and Theme.Surface2 or Color3.fromRGB(0,0,0)
+			local targetBG    = isActive and Theme.Surface2 or Color3.fromRGB(0,0,0)
 			local targetAlpha = isActive and 0 or 1
 			local targetColor = isActive and Theme.TextPrimary or Theme.TextSecondary
+			local barAlpha    = isActive and 0 or 1
 			Tween(btn.frame, 0.15, { BackgroundColor3 = targetBG, BackgroundTransparency = targetAlpha })
 			Tween(btn.label, 0.15, { TextColor3 = targetColor })
+			if btn.bar then
+				Tween(btn.bar, 0.15, { BackgroundTransparency = barAlpha })
+			end
 		end
 		for tabName, page in pairs(tabPages) do
 			if tabName == name then
@@ -683,7 +751,18 @@ function Library:CreateWindow(cfg)
 			TextXAlignment = Enum.TextXAlignment.Left,
 		}, rowLayout)
 
-		tabButtons[tabTitle] = { frame = btn, label = lbl }
+		-- Accent left-bar indicator (แสดงตอน active)
+		local accentBar = MakeInstance("Frame", {
+			Size = UDim2.new(0, 3, 0.6, 0),
+			Position = UDim2.new(0, 0, 0.2, 0),
+			BackgroundColor3 = Theme.Accent,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 5,
+		}, btn)
+		MakeInstance("UICorner", { CornerRadius = UDim.new(0, 2) }, accentBar)
+
+		tabButtons[tabTitle] = { frame = btn, label = lbl, bar = accentBar }
 
 		-- Page (CanvasGroup for fade)
 		local page = MakeInstance("CanvasGroup", {
@@ -838,16 +917,31 @@ function Library:CreateWindow(cfg)
 
 		-- ── Section divider ────────────────────────────────────────────────────
 		function Tab:AddSection(sectionTitle)
+			local wrapper = MakeInstance("Frame", {
+				Size = UDim2.new(1, 0, 0, 24),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				LayoutOrder = nextOrder(),
+			}, scroll)
+			-- accent left line
+			MakeInstance("Frame", {
+				Size = UDim2.new(0, 2, 0, 14),
+				Position = UDim2.fromOffset(0, 5),
+				BackgroundColor3 = Theme.Accent,
+				BackgroundTransparency = 0.3,
+				BorderSizePixel = 0,
+			}, wrapper)
 			MakeInstance("TextLabel", {
-				Size = UDim2.new(1, 0, 0, 20),
+				Size = UDim2.new(1, -10, 1, 0),
+				Position = UDim2.fromOffset(8, 0),
 				BackgroundTransparency = 1,
 				Text = sectionTitle:upper(),
-				TextColor3 = Theme.TextTertiary,
+				TextColor3 = Theme.Accent,
+				TextTransparency = 0.3,
 				TextSize = 10,
 				Font = Enum.Font.GothamBold,
 				TextXAlignment = Enum.TextXAlignment.Left,
-				LayoutOrder = nextOrder(),
-			}, scroll)
+			}, wrapper)
 		end
 
 		-- ── Button ────────────────────────────────────────────────────────────
@@ -991,9 +1085,9 @@ function Library:CreateWindow(cfg)
 				Position = UDim2.new(1, -50, 0, 0),
 				BackgroundTransparency = 1,
 				Text = fmt(current),
-				TextColor3 = Theme.TextSecondary,
+				TextColor3 = Theme.Accent,
 				TextSize = 12,
-				Font = Enum.Font.GothamMedium,
+				Font = Enum.Font.GothamBold,
 				TextXAlignment = Enum.TextXAlignment.Right,
 			}, topRow)
 
