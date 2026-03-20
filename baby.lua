@@ -541,19 +541,38 @@ function Library:CreateWindow(cfg)
 	screenGui.Name = "UILibrary_" .. title
 	screenGui.ResetOnSpawn = false
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	pcall(function() screenGui.Parent = game:GetService("CoreGui") end)
-	if not screenGui.Parent then screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+	screenGui.IgnoreGuiInset = true  -- กันตกขอบ Roblox topbar
 
-	-- ── Window ────────────────────────────────────────────────────────────────
-	local window = MakeInstance("CanvasGroup", {
-		Name = "Window",
-		Size = size,
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Theme.BG2,
-		BorderSizePixel = 0,
-		GroupTransparency = transparency,
-	}, screenGui)
+	-- ลอง CoreGui ก่อน ถ้า fail ใช้ PlayerGui
+	local ok = pcall(function()
+		screenGui.Parent = game:GetService("CoreGui")
+	end)
+	if not ok or not screenGui.Parent then
+		screenGui.Parent = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+			or LocalPlayer:WaitForChild("PlayerGui")
+	end
+
+	-- ── Window (CanvasGroup หรือ Frame fallback) ──────────────────────────────
+	-- บาง executor ไม่ support CanvasGroup → fallback Frame ธรรมดา
+	local window
+	local canvasOk = pcall(function()
+		window = Instance.new("CanvasGroup")
+	end)
+	if not canvasOk or not window then
+		window = Instance.new("Frame")
+	end
+	window.Name             = "Window"
+	window.Size             = size
+	window.Position         = UDim2.fromScale(0.5, 0.5)
+	window.AnchorPoint      = Vector2.new(0.5, 0.5)
+	window.BackgroundColor3 = Theme.BG2
+	window.BorderSizePixel  = 0
+	if window:IsA("CanvasGroup") then
+		window.GroupTransparency = transparency
+	else
+		window.BackgroundTransparency = transparency
+	end
+	window.Parent = screenGui
 	MakeInstance("UICorner", { CornerRadius = UDim.new(0, 14) }, window)
 	AddBorder(window, 0.15, 1)
 
@@ -728,26 +747,46 @@ function Library:CreateWindow(cfg)
 	-- ── Open/Close animation ──────────────────────────────────────────────────
 	local visible = true
 
+	-- helper: set transparency ทั้ง CanvasGroup และ Frame
+	local function SetWindowAlpha(alpha)
+		if window:IsA("CanvasGroup") then
+			window.GroupTransparency = alpha
+		else
+			window.BackgroundTransparency = alpha
+		end
+	end
+
 	local function OpenWindow()
 		window.Visible = true
-		window.GroupTransparency = 1
+		SetWindowAlpha(1)
 		window.Size = UDim2.new(
 			size.X.Scale, size.X.Offset * 0.95,
 			size.Y.Scale, size.Y.Offset * 0.95
 		)
-		Tween(window, 0.22, { GroupTransparency = transparency, Size = size })
+		Tween(window, 0.22, { Size = size })
+		if window:IsA("CanvasGroup") then
+			Tween(window, 0.22, { GroupTransparency = transparency })
+		else
+			Tween(window, 0.22, { BackgroundTransparency = transparency })
+		end
 		visible = true
 	end
 
 	local function CloseWindow()
-		Tween(window, 0.18, {
-			GroupTransparency = 1,
-			Size = UDim2.new(
-				size.X.Scale, size.X.Offset * 0.95,
-				size.Y.Scale, size.Y.Offset * 0.95
-			)
-		})
-		task.delay(0.2, function() window.Visible = false end)
+		local shrunk = UDim2.new(
+			size.X.Scale, size.X.Offset * 0.95,
+			size.Y.Scale, size.Y.Offset * 0.95
+		)
+		Tween(window, 0.18, { Size = shrunk })
+		if window:IsA("CanvasGroup") then
+			Tween(window, 0.18, { GroupTransparency = 1 })
+		else
+			Tween(window, 0.18, { BackgroundTransparency = 1 })
+		end
+		task.delay(0.2, function()
+			window.Visible = false
+			window.Size = size  -- reset size สำหรับ open ครั้งหน้า
+		end)
 		visible = false
 	end
 
@@ -759,9 +798,9 @@ function Library:CreateWindow(cfg)
 	dots[1].frame.InputBegan:Connect(function(i)
 		if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
 		Tween(window, 0.15, {
-			GroupTransparency = 1,
 			Size = UDim2.new(size.X.Scale, size.X.Offset * 0.9, size.Y.Scale, size.Y.Offset * 0.9)
 		})
+		SetWindowAlpha(1)
 		task.delay(0.18, function() screenGui:Destroy() end)
 	end)
 
