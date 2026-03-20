@@ -280,13 +280,15 @@ local function FireNotification(title, description, notifType, duration)
 
 	-- Container
 	local notif = MakeInstance("Frame", {
-		Name = "Notif_" .. notifCount,
-		Size = UDim2.new(1, 0, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
+		Name             = "Notif_" .. notifCount,
+		Size             = UDim2.new(1, 0, 0, 0),
+		AutomaticSize    = Enum.AutomaticSize.Y,
 		BackgroundColor3 = Theme.BG3,
-		BorderSizePixel = 0,
+		BorderSizePixel  = 0,
 		ClipsDescendants = true,
-		LayoutOrder = notifCount,
+		LayoutOrder      = notifCount,
+		-- เริ่มจากนอกจอขวา แล้วค่อย slide เข้ามา
+		Position         = UDim2.new(1, 20, 0, 0),
 	}, NotifHolder)
 	MakeInstance("UICorner", { CornerRadius = UDim.new(0, Theme.Radius) }, notif)
 	AddBorder(notif, Theme.BorderAlpha2)
@@ -368,14 +370,22 @@ local function FireNotification(title, description, notifType, duration)
 	}, timerTrack)
 	MakeInstance("UICorner", { CornerRadius = UDim.new(0, 1) }, timerBar)
 
-	-- Slide in
+	-- Slide in จากขวา
 	notif.BackgroundTransparency = 1
 	task.spawn(function()
-		Tween(notif, 0.2, { BackgroundTransparency = 0 })
+		-- slide เข้ามาพร้อม fade in
+		Tween(notif, 0.28, {
+			BackgroundTransparency = 0,
+			Position = UDim2.fromScale(0, 0),
+		}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 		Tween(timerBar, duration, { Size = UDim2.fromScale(0, 1) }, Enum.EasingStyle.Linear)
 		task.wait(duration)
-		Tween(notif, 0.18, { BackgroundTransparency = 1 })
-		task.wait(0.2)
+		-- slide ออกขวา + fade
+		Tween(notif, 0.22, {
+			BackgroundTransparency = 1,
+			Position = UDim2.new(1, 20, 0, 0),
+		}, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+		task.wait(0.24)
 		notif:Destroy()
 	end)
 end
@@ -566,20 +576,24 @@ function Library:CreateWindow(cfg)
 		ClipsDescendants = true,
 	}, window)
 
-	-- ── Notification holder ───────────────────────────────────────────────────
+	-- ── Notification holder — ลอยบนจอ Roblox ทั้งหน้าจอ ──────────────────────
 	NotifHolder = MakeInstance("Frame", {
-		Name = "Notifications",
-		Size = UDim2.new(0, 210, 1, 0),
-		Position = UDim2.new(1, -220, 0, 8),
+		Name            = "Notifications",
+		Size            = UDim2.new(0, 260, 1, 0),
+		Position        = UDim2.new(1, -276, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ZIndex = 200,
+		ZIndex          = 9999,
 		ClipsDescendants = false,
-	}, contentHolder)
+	}, screenGui)   -- <-- parent = screenGui ไม่ใช่ contentHolder
 	MakeInstance("UIListLayout", {
-		Padding = UDim.new(0, 6),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		VerticalAlignment = Enum.VerticalAlignment.Top,
+		Padding             = UDim.new(0, 8),
+		SortOrder           = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment   = Enum.VerticalAlignment.Bottom,  -- stack ล่างขึ้นบน
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+	}, NotifHolder)
+	MakeInstance("UIPadding", {
+		PaddingBottom = UDim.new(0, 20),
 	}, NotifHolder)
 
 	-- ── Open/Close animation ──────────────────────────────────────────────────
