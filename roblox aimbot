@@ -21,6 +21,15 @@ local Setup = {
 	Transparency = 0.2,
 	ThemeMode = "Dark",
 	Size = nil,
+
+	--// Font sizes (ปรับได้ตามใจ)
+	FontSize = {
+		Title       = 16,  -- ชื่อ Window / Section
+		Tab         = 15,  -- ปุ่ม Tab ด้านซ้าย
+		ComponentTitle = 15,  -- ชื่อ Button, Toggle, Slider ฯลฯ
+		Description = 13,  -- คำอธิบายใต้ component
+		Notification = 14, -- ข้อความ Notification
+	},
 }
 
 local Theme = { --// (Dark Theme)
@@ -327,8 +336,35 @@ function Library:CreateWindow(Settings)
 	Drag(Window)
 	Resizeable(Window, Vector2.new(411, 271), Vector2.new(9e9, 9e9))
 	Setup.Transparency = Settings.Transparency or 0
-	Setup.Size         = Settings.Size
+	Setup.Size         = Settings.Size or UDim2.new(0, 580, 0, 400) -- default ใหญ่ขึ้น
 	Setup.ThemeMode    = Settings.Theme or "Dark"
+
+	-- รวม FontSize จาก Settings เข้ากับ default
+	if Settings.FontSize then
+		for k, v in next, Settings.FontSize do
+			Setup.FontSize[k] = v
+		end
+	end
+
+	-- ฟังก์ชัน apply font size ทั้ง UI
+	local function ApplyFontSizes(root)
+		for _, obj in next, root:GetDescendants() do
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+				local name       = obj.Name
+				local parentName = obj.Parent and obj.Parent.Name or ""
+
+				if name == "Title" or name == "Section" then
+					obj.TextSize = Setup.FontSize.Title
+				elseif name == "Description" then
+					obj.TextSize = Setup.FontSize.Description
+				elseif parentName == "Tab" or name == "TextLabel" then
+					obj.TextSize = Setup.FontSize.Tab
+				else
+					obj.TextSize = Setup.FontSize.ComponentTitle
+				end
+			end
+		end
+	end
 
 	if Settings.Blurring then
 		Blurs[Settings.Title] = Blur.new(Window, 5)
@@ -533,6 +569,7 @@ function Library:CreateWindow(Settings)
 		SetProperty(Title,       { Text = Settings.Title })
 		SetProperty(Description, { Text = Settings.Description })
 		SetProperty(Notification, { Parent = Screen["Frame"] })
+		ApplyFontSizes(Notification)
 
 		task.spawn(function()
 			local Duration = Settings.Duration or 2
@@ -996,7 +1033,8 @@ function Library:CreateWindow(Settings)
 		end
 	end
 
-	SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen })
+	SetProperty(Window, { Size = Setup.Size, Visible = true, Parent = Screen })
+	ApplyFontSizes(Window)
 	Animations:Open(Window, Settings.Transparency or 0)
 
 	return Options
