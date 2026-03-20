@@ -32,25 +32,81 @@ local Setup = {
 	},
 }
 
-local Theme = { --// (Dark Theme)
-	--// Frames:
-	Primary      = Color3.fromRGB(30, 30, 30),
-	Secondary    = Color3.fromRGB(35, 35, 35),
-	Component    = Color3.fromRGB(40, 40, 40),
-	Interactables = Color3.fromRGB(45, 45, 45),
-
-	--// Text:
-	Tab         = Color3.fromRGB(200, 200, 200),
-	Title       = Color3.fromRGB(240, 240, 240),
-	Description = Color3.fromRGB(200, 200, 200),
-
-	--// Outlines:
-	Shadow  = Color3.fromRGB(0, 0, 0),
-	Outline = Color3.fromRGB(40, 40, 40),
-
-	--// Image:
-	Icon = Color3.fromRGB(220, 220, 220),
+--// Preset Themes (Dark / Light / Red / Green / Blue)
+local Themes = {
+	Dark = {
+		Primary       = Color3.fromRGB(22,  22,  22 ),
+		Secondary     = Color3.fromRGB(28,  28,  28 ),
+		Component     = Color3.fromRGB(36,  36,  36 ),
+		Interactables = Color3.fromRGB(44,  44,  44 ),
+		Hover         = Color3.fromRGB(58,  58,  58 ),  -- สี hover
+		Tab           = Color3.fromRGB(180, 180, 180),
+		Title         = Color3.fromRGB(240, 240, 240),
+		Description   = Color3.fromRGB(160, 160, 160),
+		Shadow        = Color3.fromRGB(0,   0,   0  ),
+		Outline       = Color3.fromRGB(50,  50,  50 ),
+		Icon          = Color3.fromRGB(210, 210, 210),
+		Accent        = Color3.fromRGB(130, 120, 255),  -- toggle on / highlight
+	},
+	Light = {
+		Primary       = Color3.fromRGB(245, 245, 245),
+		Secondary     = Color3.fromRGB(235, 235, 235),
+		Component     = Color3.fromRGB(225, 225, 225),
+		Interactables = Color3.fromRGB(215, 215, 215),
+		Hover         = Color3.fromRGB(200, 200, 200),
+		Tab           = Color3.fromRGB(70,  70,  70 ),
+		Title         = Color3.fromRGB(20,  20,  20 ),
+		Description   = Color3.fromRGB(90,  90,  90 ),
+		Shadow        = Color3.fromRGB(180, 180, 180),
+		Outline       = Color3.fromRGB(200, 200, 200),
+		Icon          = Color3.fromRGB(50,  50,  50 ),
+		Accent        = Color3.fromRGB(100, 90,  220),
+	},
+	Red = {
+		Primary       = Color3.fromRGB(20,  12,  12 ),
+		Secondary     = Color3.fromRGB(28,  16,  16 ),
+		Component     = Color3.fromRGB(40,  22,  22 ),
+		Interactables = Color3.fromRGB(55,  28,  28 ),
+		Hover         = Color3.fromRGB(75,  35,  35 ),
+		Tab           = Color3.fromRGB(220, 160, 160),
+		Title         = Color3.fromRGB(255, 220, 220),
+		Description   = Color3.fromRGB(190, 130, 130),
+		Shadow        = Color3.fromRGB(0,   0,   0  ),
+		Outline       = Color3.fromRGB(80,  35,  35 ),
+		Icon          = Color3.fromRGB(255, 180, 180),
+		Accent        = Color3.fromRGB(220, 60,  60 ),
+	},
+	Green = {
+		Primary       = Color3.fromRGB(10,  20,  14 ),
+		Secondary     = Color3.fromRGB(14,  28,  18 ),
+		Component     = Color3.fromRGB(20,  40,  26 ),
+		Interactables = Color3.fromRGB(26,  52,  34 ),
+		Hover         = Color3.fromRGB(34,  68,  44 ),
+		Tab           = Color3.fromRGB(140, 220, 160),
+		Title         = Color3.fromRGB(200, 255, 215),
+		Description   = Color3.fromRGB(110, 180, 130),
+		Shadow        = Color3.fromRGB(0,   0,   0  ),
+		Outline       = Color3.fromRGB(30,  70,  40 ),
+		Icon          = Color3.fromRGB(160, 240, 180),
+		Accent        = Color3.fromRGB(50,  200, 100),
+	},
+	Blue = {
+		Primary       = Color3.fromRGB(10,  14,  26 ),
+		Secondary     = Color3.fromRGB(14,  20,  36 ),
+		Component     = Color3.fromRGB(20,  28,  52 ),
+		Interactables = Color3.fromRGB(26,  36,  68 ),
+		Hover         = Color3.fromRGB(34,  48,  90 ),
+		Tab           = Color3.fromRGB(140, 170, 240),
+		Title         = Color3.fromRGB(210, 225, 255),
+		Description   = Color3.fromRGB(110, 140, 200),
+		Shadow        = Color3.fromRGB(0,   0,   0  ),
+		Outline       = Color3.fromRGB(30,  45,  90 ),
+		Icon          = Color3.fromRGB(160, 190, 255),
+		Accent        = Color3.fromRGB(70,  130, 255),
+	},
 }
+
+local Theme = Themes.Dark  -- default
 
 --// Services & Functions
 local Type = nil
@@ -295,17 +351,17 @@ end
 function Animations:Component(Component, Custom)
 	Connect(Component.InputBegan, function()
 		if Custom then
-			Tween(Component, .25, { Transparency = .85 })
+			Tween(Component, .2, { Transparency = .8 })
 		else
-			Tween(Component, .25, { BackgroundColor3 = Color(Theme.Component, 5, Setup.ThemeMode) })
+			Tween(Component, .2, { BackgroundColor3 = Theme.Hover })
 		end
 	end)
 
 	Connect(Component.InputEnded, function()
 		if Custom then
-			Tween(Component, .25, { Transparency = 1 })
+			Tween(Component, .2, { Transparency = 1 })
 		else
-			Tween(Component, .25, { BackgroundColor3 = Theme.Component })
+			Tween(Component, .2, { BackgroundColor3 = Theme.Component })
 		end
 	end)
 end
@@ -647,7 +703,7 @@ function Library:CreateWindow(Settings)
 
 		local function Set(Value)
 			if Value then
-				Tween(Main,   .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) })
+				Tween(Main,   .2, { BackgroundColor3 = Theme.Accent })
 				Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) })
 			else
 				Tween(Main,   .2, { BackgroundColor3 = Theme.Interactables })
@@ -870,12 +926,12 @@ function Library:CreateWindow(Settings)
 		})
 	end
 
-	--// Theme System
-	local Themes = {
+	--// Theme Apply System (ใช้ชื่อ ThemeApply เพื่อไม่ชนกับ Preset Themes)
+	local ThemeApply = {
 		Names = {
 			["Paragraph"] = function(Label)
 				if Label:IsA("TextButton") then
-					Label.BackgroundColor3 = Color(Theme.Component, 5, "Dark")
+					Label.BackgroundColor3 = Theme.Component
 				end
 			end,
 			["Title"] = function(Label)
@@ -913,6 +969,8 @@ function Library:CreateWindow(Settings)
 						if not Toggle.Value then
 							Label.BackgroundColor3 = Theme.Interactables
 							if Circle then Circle.BackgroundColor3 = Theme.Primary end
+						else
+							Label.BackgroundColor3 = Theme.Accent
 						end
 					else
 						Label.BackgroundColor3 = Theme.Interactables
@@ -970,21 +1028,22 @@ function Library:CreateWindow(Settings)
 	}
 
 	function Options:SetTheme(Info)
-		Theme = Info or Theme
+		-- รับได้ทั้ง string ("Dark","Light","Red","Green","Blue") และ table custom
+		if type(Info) == "string" and Themes[Info] then
+			Theme = Themes[Info]
+		elseif type(Info) == "table" then
+			Theme = Info
+		end
 
 		Window.BackgroundColor3 = Theme.Primary
 		Holder.BackgroundColor3 = Theme.Secondary
 		Window.UIStroke.Color   = Theme.Shadow
 
 		for _, Descendant in next, Screen:GetDescendants() do
-			local Name  = Themes.Names[Descendant.Name]
-			local Class = Themes.Classes[Descendant.ClassName]
-
-			if Name then
-				Name(Descendant)
-			elseif Class then
-				Class(Descendant)
-			end
+			local NameFn  = ThemeApply.Names[Descendant.Name]
+			local ClassFn = ThemeApply.Classes[Descendant.ClassName]
+			if NameFn  then NameFn(Descendant)  end
+			if ClassFn then ClassFn(Descendant) end
 		end
 	end
 
@@ -1022,7 +1081,8 @@ function Library:CreateWindow(Settings)
 				BlurEnabled = false
 			end
 
-		elseif Setting == "Theme" and typeof(Value) == "table" then
+		elseif Setting == "Theme" then
+			-- รับได้ทั้ง string preset ("Dark","Light","Red","Green","Blue") และ table custom
 			Options:SetTheme(Value)
 
 		elseif Setting == "Keybind" then
