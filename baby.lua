@@ -32,6 +32,115 @@ local RunService     = game:GetService("RunService")
 local LocalPlayer    = Players.LocalPlayer
 local Mouse          = LocalPlayer:GetMouse()
 
+-- ─── Theme Presets ───────────────────────────────────────────────────────────
+
+local ThemePresets = {
+	-- ── Dark themes ──────────────────────────────────────────────────────────
+	["Dark Red"] = {
+		BG          = Color3.fromRGB(13, 10, 10),
+		BG2         = Color3.fromRGB(20, 14, 14),
+		BG3         = Color3.fromRGB(25, 17, 17),
+		BG4         = Color3.fromRGB(32, 22, 22),
+		Surface     = Color3.fromRGB(42, 26, 26),
+		Surface2    = Color3.fromRGB(54, 30, 30),
+		TextPrimary = Color3.fromRGB(245, 235, 235),
+		TextSecondary = Color3.fromRGB(180, 145, 145),
+		TextTertiary  = Color3.fromRGB(100, 72, 72),
+		Accent      = Color3.fromRGB(220, 55, 55),
+		AccentDark  = Color3.fromRGB(170, 35, 35),
+		Green       = Color3.fromRGB(52, 201, 122),
+		Red         = Color3.fromRGB(255, 69, 58),
+		Amber       = Color3.fromRGB(255, 159, 10),
+		Blue        = Color3.fromRGB(10, 132, 255),
+	},
+	["Dark Blue"] = {
+		BG          = Color3.fromRGB(10, 12, 18),
+		BG2         = Color3.fromRGB(14, 18, 28),
+		BG3         = Color3.fromRGB(17, 22, 34),
+		BG4         = Color3.fromRGB(22, 28, 44),
+		Surface     = Color3.fromRGB(28, 36, 58),
+		Surface2    = Color3.fromRGB(35, 46, 74),
+		TextPrimary = Color3.fromRGB(230, 238, 255),
+		TextSecondary = Color3.fromRGB(140, 165, 210),
+		TextTertiary  = Color3.fromRGB(70, 92, 130),
+		Accent      = Color3.fromRGB(48, 130, 255),
+		AccentDark  = Color3.fromRGB(24, 90, 200),
+		Green       = Color3.fromRGB(52, 201, 122),
+		Red         = Color3.fromRGB(255, 69, 58),
+		Amber       = Color3.fromRGB(255, 159, 10),
+		Blue        = Color3.fromRGB(10, 132, 255),
+	},
+	["Dark Green"] = {
+		BG          = Color3.fromRGB(8, 14, 10),
+		BG2         = Color3.fromRGB(12, 20, 14),
+		BG3         = Color3.fromRGB(15, 25, 17),
+		BG4         = Color3.fromRGB(20, 33, 22),
+		Surface     = Color3.fromRGB(26, 44, 28),
+		Surface2    = Color3.fromRGB(32, 56, 35),
+		TextPrimary = Color3.fromRGB(225, 245, 230),
+		TextSecondary = Color3.fromRGB(130, 185, 145),
+		TextTertiary  = Color3.fromRGB(65, 105, 75),
+		Accent      = Color3.fromRGB(40, 200, 90),
+		AccentDark  = Color3.fromRGB(22, 150, 60),
+		Green       = Color3.fromRGB(52, 201, 122),
+		Red         = Color3.fromRGB(255, 69, 58),
+		Amber       = Color3.fromRGB(255, 159, 10),
+		Blue        = Color3.fromRGB(10, 132, 255),
+	},
+	-- ── Light themes ─────────────────────────────────────────────────────────
+	["Light Red"] = {
+		BG          = Color3.fromRGB(235, 228, 228),
+		BG2         = Color3.fromRGB(248, 244, 244),
+		BG3         = Color3.fromRGB(255, 252, 252),
+		BG4         = Color3.fromRGB(245, 240, 240),
+		Surface     = Color3.fromRGB(235, 228, 228),
+		Surface2    = Color3.fromRGB(225, 214, 214),
+		TextPrimary = Color3.fromRGB(35, 18, 18),
+		TextSecondary = Color3.fromRGB(110, 70, 70),
+		TextTertiary  = Color3.fromRGB(170, 130, 130),
+		Accent      = Color3.fromRGB(200, 30, 30),
+		AccentDark  = Color3.fromRGB(155, 18, 18),
+		Green       = Color3.fromRGB(30, 160, 80),
+		Red         = Color3.fromRGB(200, 40, 30),
+		Amber       = Color3.fromRGB(190, 110, 0),
+		Blue        = Color3.fromRGB(0, 100, 210),
+	},
+	["Light Green"] = {
+		BG          = Color3.fromRGB(228, 238, 230),
+		BG2         = Color3.fromRGB(244, 250, 246),
+		BG3         = Color3.fromRGB(252, 255, 253),
+		BG4         = Color3.fromRGB(238, 246, 240),
+		Surface     = Color3.fromRGB(220, 236, 224),
+		Surface2    = Color3.fromRGB(205, 226, 210),
+		TextPrimary = Color3.fromRGB(15, 35, 20),
+		TextSecondary = Color3.fromRGB(55, 105, 65),
+		TextTertiary  = Color3.fromRGB(120, 165, 130),
+		Accent      = Color3.fromRGB(22, 155, 68),
+		AccentDark  = Color3.fromRGB(12, 110, 46),
+		Green       = Color3.fromRGB(22, 155, 68),
+		Red         = Color3.fromRGB(200, 40, 30),
+		Amber       = Color3.fromRGB(190, 110, 0),
+		Blue        = Color3.fromRGB(0, 100, 210),
+	},
+	["Light Blue"] = {
+		BG          = Color3.fromRGB(225, 234, 248),
+		BG2         = Color3.fromRGB(242, 247, 255),
+		BG3         = Color3.fromRGB(252, 254, 255),
+		BG4         = Color3.fromRGB(234, 242, 255),
+		Surface     = Color3.fromRGB(218, 232, 252),
+		Surface2    = Color3.fromRGB(200, 220, 248),
+		TextPrimary = Color3.fromRGB(12, 24, 50),
+		TextSecondary = Color3.fromRGB(50, 90, 155),
+		TextTertiary  = Color3.fromRGB(115, 148, 200),
+		Accent      = Color3.fromRGB(14, 100, 230),
+		AccentDark  = Color3.fromRGB(8, 70, 175),
+		Green       = Color3.fromRGB(22, 155, 68),
+		Red         = Color3.fromRGB(200, 40, 30),
+		Amber       = Color3.fromRGB(190, 110, 0),
+		Blue        = Color3.fromRGB(14, 100, 230),
+	},
+}
+
 -- ─── Theme ───────────────────────────────────────────────────────────────────
 
 local Theme = {
@@ -232,22 +341,34 @@ end
 
 local function MakeSectionLabel(text, parent, layoutOrder)
 	local wrapper = MakeInstance("Frame", {
-		Size = UDim2.new(1, 0, 0, 26),
+		Size = UDim2.new(1, 0, 0, 34),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder or 0,
 	}, parent)
+
+	-- เส้นขั้นด้านบน
+	MakeInstance("Frame", {
+		Size = UDim2.new(1, -20, 0, 1),
+		Position = UDim2.fromOffset(10, 0),
+		BackgroundColor3 = Theme.Accent,
+		BackgroundTransparency = 0.75,
+		BorderSizePixel = 0,
+	}, wrapper)
+
+	-- ตัวอักษร category
 	MakeInstance("TextLabel", {
-		Size = UDim2.new(1, -24, 1, 0),
-		Position = UDim2.fromOffset(12, 0),
+		Size = UDim2.new(1, -24, 1, -4),
+		Position = UDim2.fromOffset(12, 6),
 		BackgroundTransparency = 1,
 		Text = text:upper(),
 		TextColor3 = Theme.Accent,
-		TextTransparency = 0.45,
+		TextTransparency = 0.2,
 		TextSize = 10,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, wrapper)
+
 	return wrapper
 end
 
@@ -396,11 +517,19 @@ local Library = {}
 
 function Library:CreateWindow(cfg)
 	cfg = cfg or {}
-	local title       = cfg.Title or "UI Library"
-	local size        = cfg.Size or UDim2.fromOffset(560, 420)
-	local keybind     = cfg.Keybind or Enum.KeyCode.LeftControl
+	local title        = cfg.Title or "UI Library"
+	local size         = cfg.Size or UDim2.fromOffset(560, 420)
+	local keybind      = cfg.Keybind or Enum.KeyCode.LeftControl
 	local transparency = cfg.Transparency or 0
 	local accentColor  = cfg.Accent
+	local themeName    = cfg.Theme  -- "Dark Red" | "Dark Blue" | etc.
+
+	-- Apply preset ก่อน accent override
+	if themeName and ThemePresets[themeName] then
+		for k, v in pairs(ThemePresets[themeName]) do
+			Theme[k] = v
+		end
+	end
 
 	if accentColor then
 		Theme.Accent = accentColor
@@ -1451,6 +1580,45 @@ function Library:CreateWindow(cfg)
 	function Win:SetAccent(color)
 		Theme.Accent = color
 		Theme.AccentDark = Shade(color, -18)
+	end
+
+	-- ── Switch theme preset at runtime ────────────────────────────────────────
+	function Win:SetTheme(name)
+		local preset = ThemePresets[name]
+		if not preset then
+			warn("UILibrary: theme '" .. tostring(name) .. "' not found")
+			return
+		end
+		for k, v in pairs(preset) do Theme[k] = v end
+
+		-- Update major containers
+		window.BackgroundColor3     = Theme.BG2
+		titlebar.BackgroundColor3   = Theme.BG
+		sidebar.BackgroundColor3    = Theme.BG
+		contentHolder.BackgroundColor3 = Theme.BG3
+
+		-- Update all text & frames recursively (best-effort)
+		local function UpdateDescendants(root)
+			for _, obj in ipairs(root:GetDescendants()) do
+				if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+					local n = obj.Name
+					if n == "Title" or n == "SectionTitle" then
+						obj.TextColor3 = Theme.TextPrimary
+					elseif n == "Description" then
+						obj.TextColor3 = Theme.TextSecondary
+					end
+				elseif obj:IsA("Frame") then
+					local n = obj.Name
+					if n == "AccentBar" or n == "AccentStrip" then
+						obj.BackgroundColor3 = Theme.Accent
+					end
+				end
+			end
+		end
+		UpdateDescendants(window)
+
+		-- Notify
+		FireNotification("Theme", name, "info", 2)
 	end
 
 	-- ── Update keybind ────────────────────────────────────────────────────────
