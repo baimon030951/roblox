@@ -83,7 +83,7 @@ local T = {
 	Surface=Color3.fromRGB(38,38,45), Surface2=Color3.fromRGB(46,46,54),
 	TextPrimary=Color3.fromRGB(240,240,242), TextSecondary=Color3.fromRGB(148,148,158), TextTertiary=Color3.fromRGB(86,86,96),
 	Accent=Color3.fromRGB(48,130,255), Green=Color3.fromRGB(52,201,122), Red=Color3.fromRGB(255,69,58), Amber=Color3.fromRGB(255,159,10), Blue=Color3.fromRGB(48,130,255),
-	Radius=12, RowH=56, SideW=172, TitleH=38,
+	Radius=13, RowH=62, SideW=192, TitleH=42,
 }
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ local Library={}
 function Library:CreateWindow(cfg)
 	cfg=cfg or {}
 	local title=cfg.Title or "UI Library"
-	local size=cfg.Size or UDim2.fromOffset(600,440)
+	local size=cfg.Size or UDim2.fromOffset(660,480)
 	local keybind=cfg.Keybind or Enum.KeyCode.LeftControl
 	local transparency=cfg.Transparency or 0
 
@@ -303,8 +303,8 @@ function Library:CreateWindow(cfg)
 	New("Frame",{Size=UDim2.fromOffset(14,14),BackgroundColor3=T.BG,BorderSizePixel=0,ZIndex=2},sb)
 
 	local sbList=New("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0},sb)
-	New("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder},sbList)
-	New("UIPadding",{PaddingTop=UDim.new(0,10),PaddingBottom=UDim.new(0,10)},sbList)
+	New("UIListLayout",{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder},sbList)
+	New("UIPadding",{PaddingTop=UDim.new(0,12),PaddingBottom=UDim.new(0,12)},sbList)
 
 	-- ── Content ───────────────────────────────────────────────────────────────
 	local content=New("Frame",{Name="Content",Size=UDim2.new(1,-T.SideW,1,-T.TitleH),Position=UDim2.new(0,T.SideW,0,T.TitleH),BackgroundColor3=T.BG3,BorderSizePixel=0,ClipsDescendants=true},win)
@@ -365,10 +365,9 @@ function Library:CreateWindow(cfg)
 
 	local function SideSection(text)
 		sOrder+=1
-		local w=New("Frame",{Size=UDim2.new(1,0,0,30),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=sOrder},sbList)
-		-- accent line
-		New("Frame",{Size=UDim2.new(1,-20,0,1),Position=UDim2.fromOffset(10,0),BackgroundColor3=T.Accent,BackgroundTransparency=0.7,BorderSizePixel=0},w)
-		New("TextLabel",{Size=UDim2.new(1,-24,1,-2),Position=UDim2.fromOffset(12,4),BackgroundTransparency=1,Text=text:upper(),TextColor3=T.Accent,TextTransparency=0.25,TextSize=10,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},w)
+		local w=New("Frame",{Size=UDim2.new(1,0,0,36),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=sOrder},sbList)
+		New("Frame",{Size=UDim2.new(1,-24,0,1),Position=UDim2.fromOffset(12,0),BackgroundColor3=T.Accent,BackgroundTransparency=0.72,BorderSizePixel=0},w)
+		New("TextLabel",{Size=UDim2.new(1,-28,1,-4),Position=UDim2.fromOffset(14,6),BackgroundTransparency=1,Text=text:upper(),TextColor3=T.Accent,TextTransparency=0.22,TextSize=10,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},w)
 	end
 
 	function Win:SetTab(name)
@@ -394,21 +393,21 @@ function Library:CreateWindow(cfg)
 		cfg2=cfg2 or {}; local tabTitle=cfg2.Title or "Tab"
 		sOrder+=1
 
-		local btn=New("TextButton",{Name=tabTitle,Size=UDim2.new(1,-12,0,34),Position=UDim2.fromOffset(6,0),BackgroundColor3=Color3.fromRGB(0,0,0),BackgroundTransparency=1,BorderSizePixel=0,Text="",AutoButtonColor=false,LayoutOrder=sOrder},sbList)
-		New("UICorner",{CornerRadius=UDim.new(0,8)},btn)
+		local btn=New("TextButton",{Name=tabTitle,Size=UDim2.new(1,-16,0,38),Position=UDim2.fromOffset(8,0),BackgroundColor3=Color3.fromRGB(0,0,0),BackgroundTransparency=1,BorderSizePixel=0,Text="",AutoButtonColor=false,LayoutOrder=sOrder},sbList)
+		New("UICorner",{CornerRadius=UDim.new(0,9)},btn)
 
 		local row=New("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0},btn)
-		New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,8),VerticalAlignment=Enum.VerticalAlignment.Center},row)
-		New("UIPadding",{PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,8)},row)
+		New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,9),VerticalAlignment=Enum.VerticalAlignment.Center},row)
+		New("UIPadding",{PaddingLeft=UDim.new(0,11),PaddingRight=UDim.new(0,10)},row)
 
 		-- icon square
-		local icoF=New("Frame",{Size=UDim2.fromOffset(22,22),BackgroundColor3=T.Surface,BorderSizePixel=0},row)
-		New("UICorner",{CornerRadius=UDim.new(0,6)},icoF)
+		local icoF=New("Frame",{Size=UDim2.fromOffset(24,24),BackgroundColor3=T.Surface,BorderSizePixel=0},row)
+		New("UICorner",{CornerRadius=UDim.new(0,7)},icoF)
 		if cfg2.Icon then
-			New("ImageLabel",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(4,4),BackgroundTransparency=1,Image=cfg2.Icon,ImageColor3=T.TextSecondary},icoF)
+			New("ImageLabel",{Size=UDim2.fromOffset(15,15),Position=UDim2.fromOffset(4,4),BackgroundTransparency=1,Image=cfg2.Icon,ImageColor3=T.TextSecondary},icoF)
 		end
 
-		local lbl=New("TextLabel",{Size=UDim2.new(1,-34,1,0),BackgroundTransparency=1,Text=tabTitle,TextColor3=T.TextSecondary,TextSize=13,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},row)
+		local lbl=New("TextLabel",{Size=UDim2.new(1,-36,1,0),BackgroundTransparency=1,Text=tabTitle,TextColor3=T.TextSecondary,TextSize=13.5,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},row)
 
 		-- left active bar
 		local bar=New("Frame",{Size=UDim2.new(0,3,0.55,0),Position=UDim2.new(0,0,0.225,0),BackgroundColor3=T.Accent,BackgroundTransparency=1,BorderSizePixel=0,ZIndex=5},btn)
@@ -426,8 +425,8 @@ function Library:CreateWindow(cfg)
 		if not page then page=New("Frame",{Name=tabTitle.."_Page",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,Visible=false},content) end
 
 		local scroll=New("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=T.Surface2,CanvasSize=UDim2.fromScale(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y},page)
-		New("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},scroll)
-		New("UIPadding",{PaddingTop=UDim.new(0,14),PaddingLeft=UDim.new(0,14),PaddingRight=UDim.new(0,14),PaddingBottom=UDim.new(0,14)},scroll)
+		New("UIListLayout",{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder},scroll)
+		New("UIPadding",{PaddingTop=UDim.new(0,16),PaddingLeft=UDim.new(0,16),PaddingRight=UDim.new(0,16),PaddingBottom=UDim.new(0,16)},scroll)
 		tabPages[tabTitle]=page
 
 		btn.MouseButton1Click:Connect(function() Win:SetTab(tabTitle) end)
@@ -445,16 +444,16 @@ function Library:CreateWindow(cfg)
 
 		-- Section divider
 		function Tab:AddSection(text)
-			local w=New("Frame",{Size=UDim2.new(1,0,0,22),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=NO()},scroll)
-			New("Frame",{Size=UDim2.new(0,3,0,14),Position=UDim2.fromOffset(0,4),BackgroundColor3=T.Accent,BackgroundTransparency=0.3,BorderSizePixel=0},w)
-			New("TextLabel",{Size=UDim2.new(1,-10,1,0),Position=UDim2.fromOffset(10,0),BackgroundTransparency=1,Text=text:upper(),TextColor3=T.Accent,TextTransparency=0.25,TextSize=10,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},w)
+			local w=New("Frame",{Size=UDim2.new(1,0,0,26),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=NO()},scroll)
+			New("Frame",{Size=UDim2.new(0,3,0,16),Position=UDim2.fromOffset(0,5),BackgroundColor3=T.Accent,BackgroundTransparency=0.28,BorderSizePixel=0},w)
+			New("TextLabel",{Size=UDim2.new(1,-12,1,0),Position=UDim2.fromOffset(10,0),BackgroundTransparency=1,Text=text:upper(),TextColor3=T.Accent,TextTransparency=0.22,TextSize=10.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},w)
 		end
 
 		-- ── Card helpers ─────────────────────────────────────────────────────
 		-- Every component lives in a card (rounded rect)
 		local function MakeCard(h)
 			local c=New("Frame",{
-				Size=UDim2.new(1,0,0,h or 56), BackgroundColor3=T.BG4,
+				Size=UDim2.new(1,0,0,h or 66), BackgroundColor3=T.BG4,
 				BorderSizePixel=0, LayoutOrder=NO(), ClipsDescendants=false,
 			},scroll)
 			New("UICorner",{CornerRadius=UDim.new(0,T.Radius)},c)
@@ -462,19 +461,17 @@ function Library:CreateWindow(cfg)
 			return c
 		end
 
-		-- icon area (left of card)
 		local function CardIcon(parent, iconColor, iconBgColor)
-			local f=New("Frame",{Size=UDim2.fromOffset(38,38),Position=UDim2.fromOffset(10,9),BackgroundColor3=iconBgColor or T.Surface,BorderSizePixel=0},parent)
-			New("UICorner",{CornerRadius=UDim.new(0,10)},f)
+			local f=New("Frame",{Size=UDim2.fromOffset(44,44),Position=UDim2.fromOffset(13,11),BackgroundColor3=iconBgColor or T.Surface,BorderSizePixel=0},parent)
+			New("UICorner",{CornerRadius=UDim.new(0,12)},f)
 			return f
 		end
 
-		-- label+desc in middle
 		local function CardText(parent, titleText, subText, subColor)
-			local lbl=New("TextLabel",{BackgroundTransparency=1,Text=titleText,TextColor3=T.TextPrimary,TextSize=13,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Bottom,Position=UDim2.new(0,58,0,10),Size=UDim2.new(1,-130,0,18)},parent)
+			local lbl=New("TextLabel",{BackgroundTransparency=1,Text=titleText,TextColor3=T.TextPrimary,TextSize=13.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Bottom,Position=UDim2.new(0,68,0,14),Size=UDim2.new(1,-144,0,19)},parent)
 			local sub=nil
 			if subText then
-				sub=New("TextLabel",{BackgroundTransparency=1,Text=subText,TextColor3=subColor or T.TextTertiary,TextSize=11,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Position=UDim2.new(0,58,0,30),Size=UDim2.new(1,-130,0,16)},parent)
+				sub=New("TextLabel",{BackgroundTransparency=1,Text=subText,TextColor3=subColor or T.TextTertiary,TextSize=11.5,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Position=UDim2.new(0,68,0,35),Size=UDim2.new(1,-144,0,17)},parent)
 			end
 			return lbl, sub
 		end
@@ -483,10 +480,9 @@ function Library:CreateWindow(cfg)
 		function Tab:AddToggle(cfg3)
 			cfg3=cfg3 or {}
 			local state=cfg3.Default or false
-			local card=MakeCard(56)
+			local card=MakeCard(66)
 			Hover(card,T.BG4,T.Surface)
 
-			-- status colored dot on icon
 			local icoColor=cfg3.IconColor or T.Accent
 			local icoBg=Color3.fromRGB(
 				math.clamp(icoColor.R*255*0.18+T.BG4.R*255*0.82,0,255),
@@ -494,8 +490,7 @@ function Library:CreateWindow(cfg)
 				math.clamp(icoColor.B*255*0.18+T.BG4.B*255*0.82,0,255))
 			local icoFrame=CardIcon(card,icoColor,icoBg)
 
-			-- icon dot in center
-			local icoDot=New("Frame",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(12,12),BackgroundColor3=icoColor,BorderSizePixel=0},icoFrame)
+			local icoDot=New("Frame",{Size=UDim2.fromOffset(16,16),Position=UDim2.fromOffset(14,14),BackgroundColor3=icoColor,BorderSizePixel=0},icoFrame)
 			New("UICorner",{CornerRadius=UDim.new(0.5,0)},icoDot)
 
 			local titleLbl,subLbl=CardText(card,cfg3.Title or "Toggle",state and "● Active" or "● Disabled",state and T.Green or T.TextTertiary)
@@ -526,17 +521,16 @@ function Library:CreateWindow(cfg)
 		-- ── Button ────────────────────────────────────────────────────────────
 		function Tab:AddButton(cfg3)
 			cfg3=cfg3 or {}
-			local card=MakeCard(56)
+			local card=MakeCard(66)
 			Hover(card,T.BG4,T.Surface)
 
 			local icoColor=cfg3.IconColor or T.TextSecondary
 			local icoFrame=CardIcon(card,icoColor,T.Surface)
-			New("TextLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="›",TextColor3=icoColor,TextSize=18,Font=Enum.Font.Gotham},icoFrame)
+			New("TextLabel",{Size=UDim2.fromOffset(14,14),Position=UDim2.fromOffset(15,15),BackgroundTransparency=1,Text="›",TextColor3=icoColor,TextSize=20,Font=Enum.Font.Gotham},icoFrame)
 
 			CardText(card,cfg3.Title or "Button",cfg3.Description)
 
-			-- chevron
-			New("TextLabel",{Size=UDim2.fromOffset(20,30),Position=UDim2.new(1,-28,0.5,-15),BackgroundTransparency=1,Text="›",TextColor3=T.TextTertiary,TextSize=18,Font=Enum.Font.Gotham},card)
+			New("TextLabel",{Size=UDim2.fromOffset(22,34),Position=UDim2.new(1,-30,0.5,-17),BackgroundTransparency=1,Text="›",TextColor3=T.TextTertiary,TextSize=20,Font=Enum.Font.Gotham},card)
 
 			local btn=New("TextButton",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",ZIndex=5},card)
 			btn.MouseButton1Click:Connect(function()
@@ -551,16 +545,14 @@ function Library:CreateWindow(cfg)
 			cfg3=cfg3 or {}
 			local mn=cfg3.Min or 0; local mx=cfg3.Max or 100
 			local cur=math.clamp(cfg3.Default or mn,mn,mx); local decs=cfg3.Decimals or 0
-			local card=MakeCard(68)
+			local card=MakeCard(76)
 
 			local function fmt(v) if decs>0 then return string.format("%."..decs.."f",v) end; return tostring(math.round(v)) end
 
-			-- title + value
-			New("TextLabel",{Size=UDim2.new(0.6,0,0,20),Position=UDim2.fromOffset(14,10),BackgroundTransparency=1,Text=cfg3.Title or "Slider",TextColor3=T.TextPrimary,TextSize=13,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
-			local vLbl=New("TextLabel",{Size=UDim2.new(0.4,-14,0,20),Position=UDim2.new(0.6,0,0,10),BackgroundTransparency=1,Text=fmt(cur),TextColor3=T.Accent,TextSize=13,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Right},card)
+			New("TextLabel",{Size=UDim2.new(0.6,0,0,22),Position=UDim2.fromOffset(16,14),BackgroundTransparency=1,Text=cfg3.Title or "Slider",TextColor3=T.TextPrimary,TextSize=13.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
+			local vLbl=New("TextLabel",{Size=UDim2.new(0.4,-16,0,22),Position=UDim2.new(0.6,0,0,14),BackgroundTransparency=1,Text=fmt(cur),TextColor3=T.Accent,TextSize=13.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Right},card)
 
-			-- track
-			local trackBG=New("Frame",{Size=UDim2.new(1,-28,0,4),Position=UDim2.fromOffset(14,40),BackgroundColor3=T.Surface2,BorderSizePixel=0},card)
+			local trackBG=New("Frame",{Size=UDim2.new(1,-32,0,4),Position=UDim2.fromOffset(16,48),BackgroundColor3=T.Surface2,BorderSizePixel=0},card)
 			New("UICorner",{CornerRadius=UDim.new(0,2)},trackBG)
 			local fill=New("Frame",{Size=UDim2.fromScale((cur-mn)/(mx-mn),1),BackgroundColor3=T.Accent,BorderSizePixel=0},trackBG)
 			New("UICorner",{CornerRadius=UDim.new(0,2)},fill)
@@ -585,11 +577,11 @@ function Library:CreateWindow(cfg)
 		-- ── Input ─────────────────────────────────────────────────────────────
 		function Tab:AddInput(cfg3)
 			cfg3=cfg3 or {}
-			local card=MakeCard(56)
+			local card=MakeCard(64)
 
-			New("TextLabel",{Size=UDim2.new(0.45,0,0,20),Position=UDim2.fromOffset(14,18),BackgroundTransparency=1,Text=cfg3.Title or "Input",TextColor3=T.TextPrimary,TextSize=13,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
+			New("TextLabel",{Size=UDim2.new(0.45,0,0,22),Position=UDim2.fromOffset(16,21),BackgroundTransparency=1,Text=cfg3.Title or "Input",TextColor3=T.TextPrimary,TextSize=13.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
 
-			local box=New("TextBox",{Size=UDim2.new(0.5,-20,0,28),Position=UDim2.new(0.5,0,0,14),BackgroundColor3=T.Surface,BorderSizePixel=0,Text=cfg3.Default or "",PlaceholderText=cfg3.Placeholder or "Type here...",TextColor3=T.TextPrimary,PlaceholderColor3=T.TextTertiary,TextSize=12,Font=Enum.Font.Gotham,ClearTextOnFocus=false},card)
+			local box=New("TextBox",{Size=UDim2.new(0.5,-22,0,30),Position=UDim2.new(0.5,0,0,17),BackgroundColor3=T.Surface,BorderSizePixel=0,Text=cfg3.Default or "",PlaceholderText=cfg3.Placeholder or "Type here...",TextColor3=T.TextPrimary,PlaceholderColor3=T.TextTertiary,TextSize=12.5,Font=Enum.Font.Gotham,ClearTextOnFocus=false},card)
 			New("UICorner",{CornerRadius=UDim.new(0,7)},box)
 			New("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)},box)
 			local st=Stroke(box,0.12)
@@ -606,12 +598,12 @@ function Library:CreateWindow(cfg)
 		function Tab:AddDropdown(cfg3)
 			cfg3=cfg3 or {}
 			local opts=cfg3.Options or {}; local sel=cfg3.Default or (opts[1] or "")
-			local card=MakeCard(56)
+			local card=MakeCard(66)
 			Hover(card,T.BG4,T.Surface)
 
-			New("TextLabel",{Size=UDim2.new(0.5,0,0,20),Position=UDim2.fromOffset(14,18),BackgroundTransparency=1,Text=cfg3.Title or "Dropdown",TextColor3=T.TextPrimary,TextSize=13,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
-			local selLbl=New("TextLabel",{Size=UDim2.new(0.45,-30,0,20),Position=UDim2.new(0.5,0,0,18),BackgroundTransparency=1,Text=sel,TextColor3=T.TextSecondary,TextSize=12,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Right},card)
-			New("TextLabel",{Size=UDim2.fromOffset(18,30),Position=UDim2.new(1,-26,0.5,-15),BackgroundTransparency=1,Text="⌄",TextColor3=T.TextTertiary,TextSize=14,Font=Enum.Font.Gotham},card)
+			New("TextLabel",{Size=UDim2.new(0.5,0,0,22),Position=UDim2.fromOffset(16,22),BackgroundTransparency=1,Text=cfg3.Title or "Dropdown",TextColor3=T.TextPrimary,TextSize=13.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
+			local selLbl=New("TextLabel",{Size=UDim2.new(0.45,-30,0,22),Position=UDim2.new(0.5,0,0,22),BackgroundTransparency=1,Text=sel,TextColor3=T.TextSecondary,TextSize=12.5,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Right},card)
+			New("TextLabel",{Size=UDim2.fromOffset(20,32),Position=UDim2.new(1,-28,0.5,-16),BackgroundTransparency=1,Text="⌄",TextColor3=T.TextTertiary,TextSize=15,Font=Enum.Font.Gotham},card)
 
 			local function OD()
 				local menu=New("Frame",{Size=UDim2.new(0,180,0,0),AutomaticSize=Enum.AutomaticSize.Y,Position=UDim2.new(0,0,1,4),BackgroundColor3=T.BG2,BorderSizePixel=0,ZIndex=60},card)
@@ -659,33 +651,32 @@ function Library:CreateWindow(cfg)
 				return n==0 and "None selected" or n.." selected"
 			end
 
-			local card=MakeCard(56)
+			local card=MakeCard(66)
 			Hover(card,T.BG4,T.Surface)
 
-			New("TextLabel",{Size=UDim2.new(0.5,0,0,20),Position=UDim2.fromOffset(14,18),BackgroundTransparency=1,Text=cfg3.Title or "Multi-Select",TextColor3=T.TextPrimary,TextSize=13,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
-			local cntLbl=New("TextLabel",{Size=UDim2.new(0.45,-30,0,20),Position=UDim2.new(0.5,0,0,18),BackgroundTransparency=1,Text=countText(),TextColor3=T.TextSecondary,TextSize=12,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Right},card)
-			New("TextLabel",{Size=UDim2.fromOffset(18,30),Position=UDim2.new(1,-26,0.5,-15),BackgroundTransparency=1,Text="⌄",TextColor3=T.TextTertiary,TextSize=14,Font=Enum.Font.Gotham},card)
+			New("TextLabel",{Size=UDim2.new(0.5,0,0,22),Position=UDim2.fromOffset(16,22),BackgroundTransparency=1,Text=cfg3.Title or "Multi-Select",TextColor3=T.TextPrimary,TextSize=13.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
+			local cntLbl=New("TextLabel",{Size=UDim2.new(0.45,-30,0,22),Position=UDim2.new(0.5,0,0,22),BackgroundTransparency=1,Text=countText(),TextColor3=T.TextSecondary,TextSize=12.5,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Right},card)
+			New("TextLabel",{Size=UDim2.fromOffset(20,32),Position=UDim2.new(1,-28,0.5,-16),BackgroundTransparency=1,Text="⌄",TextColor3=T.TextTertiary,TextSize=15,Font=Enum.Font.Gotham},card)
 
 			local function OpenMenu()
-				local menuH=math.min(#opts*36+8,200)
-				local menu=New("Frame",{Size=UDim2.new(0,200,0,menuH),Position=UDim2.new(0,0,1,4),BackgroundColor3=T.BG2,BorderSizePixel=0,ZIndex=60,ClipsDescendants=true},card)
-				New("UICorner",{CornerRadius=UDim.new(0,10)},menu); Stroke(menu,0.15)
+				local menuH=math.min(#opts*40+10,220)
+				local menu=New("Frame",{Size=UDim2.new(0,220,0,menuH),Position=UDim2.new(0,0,1,6),BackgroundColor3=T.BG2,BorderSizePixel=0,ZIndex=60,ClipsDescendants=true},card)
+				New("UICorner",{CornerRadius=UDim.new(0,11)},menu); Stroke(menu,0.15)
 
 				local sf=New("ScrollingFrame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=T.Surface2,CanvasSize=UDim2.fromScale(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y},menu)
 				New("UIListLayout",{Padding=UDim.new(0,0)},sf)
-				New("UIPadding",{PaddingTop=UDim.new(0,4),PaddingBottom=UDim.new(0,4)},sf)
+				New("UIPadding",{PaddingTop=UDim.new(0,5),PaddingBottom=UDim.new(0,5)},sf)
 
 				local checkFrames={}
 				for _,opt in ipairs(opts) do
-					local ob=New("Frame",{Size=UDim2.new(1,0,0,36),BackgroundColor3=T.BG2,BorderSizePixel=0},sf)
+					local ob=New("Frame",{Size=UDim2.new(1,0,0,40),BackgroundColor3=T.BG2,BorderSizePixel=0},sf)
 					Hover(ob,T.BG2,T.Surface)
 
-					-- checkbox
-					local box2=New("Frame",{Size=UDim2.fromOffset(18,18),Position=UDim2.fromOffset(12,9),BackgroundColor3=selected[opt] and T.Accent or T.Surface2,BorderSizePixel=0},ob)
-					New("UICorner",{CornerRadius=UDim.new(0,5)},box2); Stroke(box2,0.15)
-					local chk=New("TextLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="✓",TextColor3=Color3.fromRGB(255,255,255),TextSize=11,Font=Enum.Font.GothamBold,Visible=selected[opt]},box2)
+					local box2=New("Frame",{Size=UDim2.fromOffset(20,20),Position=UDim2.fromOffset(12,10),BackgroundColor3=selected[opt] and T.Accent or T.Surface2,BorderSizePixel=0},ob)
+					New("UICorner",{CornerRadius=UDim.new(0,6)},box2); Stroke(box2,0.15)
+					local chk=New("TextLabel",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="✓",TextColor3=Color3.fromRGB(255,255,255),TextSize=12,Font=Enum.Font.GothamBold,Visible=selected[opt]},box2)
 
-					New("TextLabel",{Size=UDim2.new(1,-40,1,0),Position=UDim2.fromOffset(36,0),BackgroundTransparency=1,Text=opt,TextColor3=T.TextPrimary,TextSize=12.5,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},ob)
+					New("TextLabel",{Size=UDim2.new(1,-44,1,0),Position=UDim2.fromOffset(40,0),BackgroundTransparency=1,Text=opt,TextColor3=T.TextPrimary,TextSize=13,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},ob)
 
 					checkFrames[opt]={box=box2,chk=chk}
 
@@ -722,16 +713,15 @@ function Library:CreateWindow(cfg)
 			local opts=cfg3.Options or {}
 			local sel=cfg3.Default or (opts[1] or "")
 			local visRows=math.min(cfg3.MaxVisible or 5, #opts)
-			local rowH=34
-			local cardH=visRows*rowH+12+22  -- rows + padding + title
+			local rowH=40
+			local cardH=visRows*rowH+16+26
 
 			local card=New("Frame",{Size=UDim2.new(1,0,0,cardH),BackgroundColor3=T.BG4,BorderSizePixel=0,LayoutOrder=NO(),ClipsDescendants=true},scroll)
 			New("UICorner",{CornerRadius=UDim.new(0,T.Radius)},card); Stroke(card,0.07)
 
-			-- title bar
-			New("TextLabel",{Size=UDim2.new(1,-14,0,22),Position=UDim2.fromOffset(14,0),BackgroundTransparency=1,Text=(cfg3.Title or "Listbox"):upper(),TextColor3=T.TextTertiary,TextSize=10,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
+			New("TextLabel",{Size=UDim2.new(1,-16,0,26),Position=UDim2.fromOffset(16,0),BackgroundTransparency=1,Text=(cfg3.Title or "Listbox"):upper(),TextColor3=T.TextTertiary,TextSize=10.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
 
-			local sf=New("ScrollingFrame",{Size=UDim2.new(1,0,1,-22),Position=UDim2.fromOffset(0,22),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=T.Surface2,CanvasSize=UDim2.fromScale(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y},card)
+			local sf=New("ScrollingFrame",{Size=UDim2.new(1,0,1,-26),Position=UDim2.fromOffset(0,26),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=3,ScrollBarImageColor3=T.Surface2,CanvasSize=UDim2.fromScale(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y},card)
 			New("UIListLayout",{Padding=UDim.new(0,0),SortOrder=Enum.SortOrder.LayoutOrder},sf)
 
 			local rowObjs={}
@@ -748,18 +738,16 @@ function Library:CreateWindow(cfg)
 			for i,opt in ipairs(opts) do
 				local row=New("Frame",{Size=UDim2.new(1,0,0,rowH),BackgroundColor3=opt==sel and T.Surface or T.BG4,BorderSizePixel=0,LayoutOrder=i},sf)
 
-				-- separator line (not on last)
 				if i<#opts then
-					New("Frame",{Size=UDim2.new(1,-12,0,1),Position=UDim2.new(0,6,1,-1),BackgroundColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=0.92,BorderSizePixel=0},row)
+					New("Frame",{Size=UDim2.new(1,-16,0,1),Position=UDim2.new(0,8,1,-1),BackgroundColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=0.92,BorderSizePixel=0},row)
 				end
 
-				local dot=New("Frame",{Size=UDim2.fromOffset(6,6),Position=UDim2.fromOffset(12,14),BackgroundColor3=T.Accent,BorderSizePixel=0,Visible=opt==sel},row)
+				local dot=New("Frame",{Size=UDim2.fromOffset(7,7),Position=UDim2.fromOffset(14,16),BackgroundColor3=T.Accent,BorderSizePixel=0,Visible=opt==sel},row)
 				New("UICorner",{CornerRadius=UDim.new(0.5,0)},dot)
 
-				local lbl=New("TextLabel",{Size=UDim2.new(1,-44,1,0),Position=UDim2.fromOffset(26,0),BackgroundTransparency=1,Text=opt,TextColor3=opt==sel and T.TextPrimary or T.TextSecondary,TextSize=12.5,Font=opt==sel and Enum.Font.GothamBold or Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},row)
+				local lbl=New("TextLabel",{Size=UDim2.new(1,-50,1,0),Position=UDim2.fromOffset(30,0),BackgroundTransparency=1,Text=opt,TextColor3=opt==sel and T.TextPrimary or T.TextSecondary,TextSize=13,Font=opt==sel and Enum.Font.GothamBold or Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},row)
 
-				-- checkmark on right
-				local chk=New("TextLabel",{Size=UDim2.fromOffset(20,rowH),Position=UDim2.new(1,-24,0,0),BackgroundTransparency=1,Text="✓",TextColor3=T.Accent,TextSize=13,Font=Enum.Font.GothamBold,Visible=opt==sel},row)
+				local chk=New("TextLabel",{Size=UDim2.fromOffset(24,rowH),Position=UDim2.new(1,-28,0,0),BackgroundTransparency=1,Text="✓",TextColor3=T.Accent,TextSize=14,Font=Enum.Font.GothamBold,Visible=opt==sel},row)
 
 				rowObjs[opt]={frame=row,lbl=lbl,dot=dot,chk=chk}
 
@@ -781,12 +769,12 @@ function Library:CreateWindow(cfg)
 		function Tab:AddKeybind(cfg3)
 			cfg3=cfg3 or {}
 			local ck=cfg3.Default; local ls=false
-			local card=MakeCard(56)
+			local card=MakeCard(cfg3.Description and 72 or 64)
 			Hover(card,T.BG4,T.Surface)
 
-			New("TextLabel",{Size=UDim2.new(0.55,0,0,20),Position=UDim2.fromOffset(14,18),BackgroundTransparency=1,Text=cfg3.Title or "Keybind",TextColor3=T.TextPrimary,TextSize=13,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
+			New("TextLabel",{Size=UDim2.new(0.55,0,0,22),Position=UDim2.fromOffset(16,cfg3.Description and 16 or 21),BackgroundTransparency=1,Text=cfg3.Title or "Keybind",TextColor3=T.TextPrimary,TextSize=13.5,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},card)
 			if cfg3.Description then
-				New("TextLabel",{Size=UDim2.new(0.55,0,0,16),Position=UDim2.fromOffset(14,32),BackgroundTransparency=1,Text=cfg3.Description,TextColor3=T.TextTertiary,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},card)
+				New("TextLabel",{Size=UDim2.new(0.55,0,0,17),Position=UDim2.fromOffset(16,38),BackgroundTransparency=1,Text=cfg3.Description,TextColor3=T.TextTertiary,TextSize=11.5,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},card)
 			end
 
 			local function KN(k)
@@ -795,8 +783,8 @@ function Library:CreateWindow(cfg)
 				return s:gsub("Enum%.KeyCode%.",""):gsub("Enum%.UserInputType%.",""):gsub("MouseButton","MB")
 			end
 
-			local badge=New("TextButton",{Size=UDim2.fromOffset(68,26),Position=UDim2.new(1,-80,0.5,-13),BackgroundColor3=T.Surface2,BorderSizePixel=0,Text=ck and KN(ck) or "None",TextColor3=T.TextPrimary,TextSize=11,Font=Enum.Font.GothamBold,AutoButtonColor=false},card)
-			New("UICorner",{CornerRadius=UDim.new(0,6)},badge); Stroke(badge,0.12)
+			local badge=New("TextButton",{Size=UDim2.fromOffset(74,30),Position=UDim2.new(1,-88,0.5,-15),BackgroundColor3=T.Surface2,BorderSizePixel=0,Text=ck and KN(ck) or "None",TextColor3=T.TextPrimary,TextSize=12,Font=Enum.Font.GothamBold,AutoButtonColor=false},card)
+			New("UICorner",{CornerRadius=UDim.new(0,7)},badge); Stroke(badge,0.12)
 
 			badge.MouseButton1Click:Connect(function()
 				if ls then return end; ls=true; badge.Text="..."; Tw(badge,.15,{BackgroundColor3=T.Accent})
