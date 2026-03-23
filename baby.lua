@@ -1,1935 +1,752 @@
 --[[
-    PulseUI Library v2.0
-    Made by Torch — Extended & Fixed
-    
-    FIXES:
-    - Hover ทำให้ component ดำค้าง → ใช้ InputBegan/InputEnded ถูกต้อง + reset สี
-    - Keybind leak → disconnect หลัง detect ครั้งแรก
-    - Slider loop ไม่มี timeout → เพิ่ม guard
-    - Global variable รั่ว → เพิ่ม local ทุกตัว
-    
-    NEW FEATURES:
-    - ปุ่มแดง/ส้ม/เขียว ทำงานถูกต้อง (ปิด/พับ/ขยาย)
-    - ฟอนต์ใหญ่ขึ้น อ่านง่าย ชัดเจน
-    - Tab ใช้ฟอนต์ bold
-    - ปรับขนาด UI ได้อิสระทุกทิศทาง (resize handles)
-    - เลือกสีธีมได้ + Preset themes
-    - หน้าตาใหม่ เท่ขึ้น
+    God Weapon v2.0 - WindUI
+    Author: TheTorch
 ]]
 
---// Wait for game load
-if not game:IsLoaded() then game.Loaded:Wait() end
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
---// Services
-local Players      = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local RunService   = game:GetService("RunService")
-local UIS          = game:GetService("UserInputService")
-local InsertService= game:GetService("InsertService")
-local HttpService  = game:GetService("HttpService")
+local Window = WindUI:CreateWindow({
+    Title = "God Weapon", Icon = "sword", Author = "โดย TheTorch",
+    Folder = "GodWeaponConfig", Theme = "Dark",
+    Resizable = true, Transparent = true, BackgroundImageTransparency = 0.85,
+    SideBarWidth = 200, ScrollBarEnabled = true,
+    Size = UDim2.fromOffset(640, 500),
+    User = { Enabled = true, Anonymous = false },
+})
+Window:Tag({ Title = "v2.0", Icon = "zap", Color = Color3.fromHex("#00ffcc"), Radius = 6 })
 
-local LocalPlayer  = Players.LocalPlayer
-local Mouse        = LocalPlayer:GetMouse()
-local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
+local PVPTab      = Window:Tab({ Title = "ต่อสู้",  Icon = "crosshair"    })
+local FarmTab     = Window:Tab({ Title = "ฟาร์ม",   Icon = "briefcase"    })
+local TeleportTab = Window:Tab({ Title = "เทเลพอต", Icon = "map-pin"      })
+local ActivityTab = Window:Tab({ Title = "กิจกรรม", Icon = "party-popper" })
+local CarTab      = Window:Tab({ Title = "รถยนต์",  Icon = "car"          })
+local SettingsTab = Window:Tab({ Title = "ตั้งค่า", Icon = "settings"     })
 
---// Helpers
-local function Tween(obj, t, props, style, dir)
-    TweenService:Create(obj,
-        TweenInfo.new(t, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out),
-        props
-    ):Play()
-end
+-- ==================== CONFIG ====================
+local GUIActive = true
 
-local function SetProps(obj, props)
-    for k,v in next, props do obj[k] = v end
-    return obj
-end
+local Keys = { Hitbox = Enum.KeyCode.X, Wheel = Enum.KeyCode.Z }
 
-local function MakeCorner(parent, radius)
-    local c = Instance.new("UICorner", parent)
-    c.CornerRadius = UDim.new(0, radius or 8)
-    return c
-end
-
-local function MakeStroke(parent, color, thickness, transparency)
-    local s = Instance.new("UIStroke", parent)
-    s.Color = color or Color3.fromRGB(60,60,60)
-    s.Thickness = thickness or 1
-    s.Transparency = transparency or 0
-    return s
-end
-
-local function MakePadding(parent, t, b, l, r)
-    local p = Instance.new("UIPadding", parent)
-    p.PaddingTop    = UDim.new(0, t or 0)
-    p.PaddingBottom = UDim.new(0, b or 0)
-    p.PaddingLeft   = UDim.new(0, l or 0)
-    p.PaddingRight  = UDim.new(0, r or 0)
-    return p
-end
-
-local function MakeList(parent, dir, padding, sort)
-    local l = Instance.new("UIListLayout", parent)
-    l.FillDirection  = dir or Enum.FillDirection.Vertical
-    l.SortOrder      = sort or Enum.SortOrder.LayoutOrder
-    l.Padding        = UDim.new(0, padding or 0)
-    return l
-end
-
---// Theme Presets
-local Presets = {
-    Dark = {
-        Primary      = Color3.fromRGB(18, 18, 22),
-        Secondary    = Color3.fromRGB(24, 24, 30),
-        Sidebar      = Color3.fromRGB(20, 20, 26),
-        Component    = Color3.fromRGB(32, 32, 40),
-        Hover        = Color3.fromRGB(42, 42, 52),
-        Active       = Color3.fromRGB(50, 50, 62),
-        Title        = Color3.fromRGB(245, 245, 250),
-        Subtitle     = Color3.fromRGB(170, 170, 185),
-        Muted        = Color3.fromRGB(100, 100, 115),
-        Outline      = Color3.fromRGB(45, 45, 58),
-        Accent       = Color3.fromRGB(130, 100, 255),
-        AccentHover  = Color3.fromRGB(150, 120, 255),
-        Success      = Color3.fromRGB(80, 200, 120),
-        Warning      = Color3.fromRGB(255, 180, 50),
-        Danger       = Color3.fromRGB(255, 80, 80),
-    },
-    Midnight = {
-        Primary      = Color3.fromRGB(10, 12, 20),
-        Secondary    = Color3.fromRGB(14, 17, 28),
-        Sidebar      = Color3.fromRGB(12, 14, 24),
-        Component    = Color3.fromRGB(22, 26, 42),
-        Hover        = Color3.fromRGB(30, 35, 55),
-        Active       = Color3.fromRGB(38, 44, 68),
-        Title        = Color3.fromRGB(220, 230, 255),
-        Subtitle     = Color3.fromRGB(140, 155, 200),
-        Muted        = Color3.fromRGB(80, 90, 130),
-        Outline      = Color3.fromRGB(35, 42, 70),
-        Accent       = Color3.fromRGB(90, 130, 255),
-        AccentHover  = Color3.fromRGB(110, 150, 255),
-        Success      = Color3.fromRGB(70, 190, 140),
-        Warning      = Color3.fromRGB(255, 165, 30),
-        Danger       = Color3.fromRGB(220, 70, 70),
-    },
-    Rose = {
-        Primary      = Color3.fromRGB(20, 14, 16),
-        Secondary    = Color3.fromRGB(26, 18, 21),
-        Sidebar      = Color3.fromRGB(22, 15, 18),
-        Component    = Color3.fromRGB(36, 26, 30),
-        Hover        = Color3.fromRGB(48, 34, 40),
-        Active       = Color3.fromRGB(58, 42, 48),
-        Title        = Color3.fromRGB(255, 240, 244),
-        Subtitle     = Color3.fromRGB(200, 165, 175),
-        Muted        = Color3.fromRGB(130, 95, 108),
-        Outline      = Color3.fromRGB(60, 40, 48),
-        Accent       = Color3.fromRGB(230, 80, 120),
-        AccentHover  = Color3.fromRGB(245, 100, 140),
-        Success      = Color3.fromRGB(80, 200, 130),
-        Warning      = Color3.fromRGB(255, 175, 50),
-        Danger       = Color3.fromRGB(255, 80, 80),
-    },
-    Nord = {
-        Primary      = Color3.fromRGB(46, 52, 64),
-        Secondary    = Color3.fromRGB(59, 66, 82),
-        Sidebar      = Color3.fromRGB(46, 52, 64),
-        Component    = Color3.fromRGB(67, 76, 94),
-        Hover        = Color3.fromRGB(76, 86, 106),
-        Active       = Color3.fromRGB(86, 96, 118),
-        Title        = Color3.fromRGB(236, 239, 244),
-        Subtitle     = Color3.fromRGB(194, 201, 216),
-        Muted        = Color3.fromRGB(129, 141, 167),
-        Outline      = Color3.fromRGB(76, 86, 106),
-        Accent       = Color3.fromRGB(136, 192, 208),
-        AccentHover  = Color3.fromRGB(156, 210, 226),
-        Success      = Color3.fromRGB(163, 190, 140),
-        Warning      = Color3.fromRGB(235, 203, 139),
-        Danger       = Color3.fromRGB(191, 97, 106),
+local Config = {
+    ExcludedPlayers  = {},
+    TargetingEnabled = false,
+    Highlight = { Enabled = true, Color = Color3.fromRGB(0,255,255), Transparency = 0.7 },
+    Target    = { Size = Vector3.new(20,20,20), RefreshInterval = 1 },
+    Truck     = { Selected = nil },
+    AutoArmor = { Enabled = false, KeyNumber = 1 },
+    Farm = {
+        Settings  = { TeleportDelay=5, TeleportCount=1, CollectAmount=5, FarmMode=1 },
+        Grape     = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
+        Rock      = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
+        ScrapIron = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
+        Garbage   = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
     },
 }
 
---// State
-local T = Presets.Dark  -- active theme (mutable reference)
-local SavedBinds  = {}
-local SavedConfig = {}
-local Library     = {}
+local CarConfig = {
+    ExcludedCars={}, WheelSize=Vector3.new(10,10,10),
+    Enabled=false, HighlightEnabled=true,
+    HighlightColor=Color3.fromRGB(255,165,0),
+}
 
---// ScreenGui
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "PulseUI_v2"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 999
-xpcall(function() ScreenGui.Parent = game:GetService("CoreGui") end,
-       function() ScreenGui.Parent = PlayerGui end)
+-- ==================== UTILITY ====================
 
--- Notification container
-local NotifHolder = Instance.new("Frame", ScreenGui)
-NotifHolder.Name = "Notifications"
-NotifHolder.Size = UDim2.new(0, 280, 1, 0)
-NotifHolder.Position = UDim2.new(1, -290, 0, 0)
-NotifHolder.BackgroundTransparency = 1
-NotifHolder.AnchorPoint = Vector2.new(0, 0)
-MakeList(NotifHolder, Enum.FillDirection.Vertical, 8)
-local NotifPad = Instance.new("UIPadding", NotifHolder)
-NotifPad.PaddingTop = UDim.new(0, 12)
-NotifPad.PaddingRight = UDim.new(0, 0)
-
--- ============================================================
---  DRAG
--- ============================================================
-local function MakeDraggable(handle, target)
-    local dragging, startMouse, startPos
-    handle.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging    = true
-            startMouse  = Vector2.new(inp.Position.X, inp.Position.Y)
-            startPos    = target.Position
-        end
-    end)
-    UIS.InputChanged:Connect(function(inp)
-        if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = Vector2.new(inp.Position.X, inp.Position.Y) - startMouse
-            target.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-    UIS.InputEnded:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
+local function Notify(title, text, icon, dur)
+    WindUI:Notify({ Title=title, Content=text, Icon=icon or "bell", Duration=dur or 3 })
 end
 
--- ============================================================
---  RESIZE (all 4 edges + corners)
--- ============================================================
-local function MakeResizable(window, minW, minH)
-    minW = minW or 380
-    minH = minH or 260
+local function GetAllPlayers()
+    local t = {}
+    for _, p in pairs(game.Players:GetPlayers()) do table.insert(t, p.Name) end
+    return t
+end
 
-    local handles = {
-        -- { name, cursor, anchorX, anchorY, resizeX, resizeY }
-        { "Right",       "SizeEW",   1, 0.5,  1,  0 },
-        { "Bottom",      "SizeNS",   0.5, 1,  0,  1 },
-        { "Left",        "SizeEW",   0, 0.5, -1,  0 },
-        { "Top",         "SizeNS",   0.5, 0,  0, -1 },
-        { "BottomRight", "SizeNWSE", 1, 1,    1,  1 },
-        { "BottomLeft",  "SizeSW",   0, 1,   -1,  1 },
-        { "TopRight",    "SizeNE",   1, 0,    1, -1 },
-        { "TopLeft",     "SizeNWSE", 0, 0,   -1, -1 },
-    }
+-- ==================== TRUCK ====================
 
-    local EDGE = 6
-
-    for _, h in ipairs(handles) do
-        local name, _, ax, ay, rx, ry = table.unpack(h)
-        local frame = Instance.new("Frame", window)
-        frame.Name = "Resize_"..name
-        frame.BackgroundTransparency = 1
-        frame.ZIndex = 20
-
-        if rx ~= 0 and ry == 0 then
-            -- horizontal edge
-            frame.Size = UDim2.new(0, EDGE, 1, -20)
-            frame.AnchorPoint = Vector2.new(ax, 0.5)
-            frame.Position = UDim2.new(ax, 0, 0.5, 0)
-        elseif ry ~= 0 and rx == 0 then
-            -- vertical edge
-            frame.Size = UDim2.new(1, -20, 0, EDGE)
-            frame.AnchorPoint = Vector2.new(0.5, ay)
-            frame.Position = UDim2.new(0.5, 0, ay, 0)
-        else
-            -- corner
-            frame.Size = UDim2.new(0, 14, 0, 14)
-            frame.AnchorPoint = Vector2.new(ax, ay)
-            frame.Position = UDim2.new(ax, 0, ay, 0)
+local function ScanPlayerTrucks()
+    local player = game.Players.LocalPlayer
+    local trucks = {}
+    for _, v in pairs(player:GetChildren()) do
+        if v:IsA("Model") or v:IsA("Folder") or v:IsA("Tool") then
+            local n = v.Name:lower()
+            if n:find("truck") or n:find("kg") or n:find("army") or n:find("free") or n:find("car") or n:find("van") then
+                table.insert(trucks, v.Name)
+            end
         end
+    end
+    if #trucks == 0 then
+        local cache = workspace:FindFirstChild("CachePart")
+        if cache then
+            for _, v in pairs(cache:GetChildren()) do
+                if v.Name:find(player.Name) then table.insert(trucks, v.Name) end
+            end
+        end
+    end
+    return trucks
+end
 
-        local resizing = false
-        local startMouse, startSize, startPos
+local function GetTruck()
+    local player = game.Players.LocalPlayer
+    if Config.Truck.Selected then
+        local t = player:FindFirstChild(Config.Truck.Selected)
+        if t then return t end
+        local cache = workspace:FindFirstChild("CachePart")
+        if cache then
+            local ct = cache:FindFirstChild(Config.Truck.Selected)
+            if ct then return ct end
+        end
+    end
+    for _, v in pairs(player:GetChildren()) do
+        if v:IsA("Model") or v:IsA("Folder") or v:IsA("Tool") then
+            local n = v.Name:lower()
+            if n:find("truck") or n:find("kg") or n:find("army") or n:find("free") then
+                Config.Truck.Selected = v.Name
+                return v
+            end
+        end
+    end
+    return nil
+end
 
-        frame.InputBegan:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                resizing   = true
-                startMouse = Vector2.new(Mouse.X, Mouse.Y)
-                startSize  = Vector2.new(window.AbsoluteSize.X, window.AbsoluteSize.Y)
-                startPos   = window.Position
+-- ==================== TARGET ====================
+
+local function ApplyTargeting()
+    local modified, skipped = 0, 0
+    local exclude = {}
+    for _, n in pairs(Config.ExcludedPlayers) do exclude[n] = true end
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if exclude[player.Name] then skipped += 1 continue end
+        local model = workspace:FindFirstChild(player.Name)
+        if not model then continue end
+        local head2 = model:FindFirstChild("Head2")
+        if not head2 then continue end
+        for _, child in pairs(head2:GetChildren()) do
+            if not child.Name:match("^TARGET_") or not child:IsA("BasePart") then continue end
+            child.Size = Config.Target.Size
+            child.Transparency = Config.Highlight.Transparency
+            local hl = child:FindFirstChildOfClass("Highlight") or Instance.new("Highlight", child)
+            hl.FillColor=Config.Highlight.Color hl.OutlineColor=Config.Highlight.Color
+            hl.FillTransparency=1 hl.OutlineTransparency=0 hl.Enabled=Config.Highlight.Enabled
+            local sb = child:FindFirstChildOfClass("SelectionBox")
+            if not sb then sb=Instance.new("SelectionBox",child) sb.Adornee=child end
+            sb.Color3=Config.Highlight.Color sb.LineThickness=0.05 sb.Transparency=0 sb.Visible=Config.Highlight.Enabled
+            modified += 1
+        end
+    end
+    return modified, skipped
+end
+
+local function ResetTargeting()
+    local count = 0
+    for _, player in pairs(game.Players:GetPlayers()) do
+        local model = workspace:FindFirstChild(player.Name)
+        if not model then continue end
+        local head2 = model:FindFirstChild("Head2")
+        if not head2 then continue end
+        for _, child in pairs(head2:GetChildren()) do
+            if not child.Name:match("^TARGET_") or not child:IsA("BasePart") then continue end
+            child.Size = Vector3.new(0,0,0)
+            local hl = child:FindFirstChildOfClass("Highlight") if hl then hl:Destroy() end
+            local sb = child:FindFirstChildOfClass("SelectionBox") if sb then sb:Destroy() end
+            count += 1
+        end
+    end
+    return count
+end
+
+local function SetTargeting(state)
+    Config.TargetingEnabled = state
+    if state then
+        local m, s = ApplyTargeting()
+        Notify("Hitbox ON", ("ปรับ %d | ข้าม %d"):format(m,s), "crosshair", 4)
+        task.spawn(function()
+            while Config.TargetingEnabled do
+                ApplyTargeting()
+                task.wait(Config.Target.RefreshInterval)
             end
         end)
-
-        UIS.InputChanged:Connect(function(inp)
-            if resizing and inp.UserInputType == Enum.UserInputType.MouseMovement then
-                local dm = Vector2.new(Mouse.X, Mouse.Y) - startMouse
-                local nw = math.max(minW, startSize.X + dm.X * rx)
-                local nh = math.max(minH, startSize.Y + dm.Y * ry)
-
-                local dw = nw - startSize.X
-                local dh = nh - startSize.Y
-
-                window.Size = UDim2.new(0, nw, 0, nh)
-
-                -- adjust position for left/top handles
-                local px = startPos.X.Offset + (rx == -1 and -dw or 0)
-                local py = startPos.Y.Offset + (ry == -1 and -dh or 0)
-                window.Position = UDim2.new(startPos.X.Scale, px, startPos.Y.Scale, py)
-            end
-        end)
-
-        UIS.InputEnded:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                resizing = false
-            end
-        end)
+    else
+        Notify("Hitbox OFF", ("รีเซ็ต %d เป้าหมาย"):format(ResetTargeting()), "x-circle", 4)
     end
 end
 
--- ============================================================
---  COMPONENT HOVER ANIMATION  (BUG FIX: สีดำค้าง)
--- ============================================================
-local function AddHover(btn, normalColor, hoverColor)
-    -- ใช้ MouseEnter/MouseLeave แทน InputBegan/InputEnded
-    -- เพื่อให้ reset ได้แน่นอนแม้เมาส์ออกอย่างรวดเร็ว
-    btn.MouseEnter:Connect(function()
-        Tween(btn, .15, { BackgroundColor3 = hoverColor or T.Hover })
+-- ==================== FARM ====================
+
+local function GetPosKey(pos) return ("%.2f_%.2f_%.2f"):format(pos.X,pos.Y,pos.Z) end
+local function CountT(t) local c=0 for _ in pairs(t) do c+=1 end return c end
+
+local function TpJump(cf)
+    local char = game.Players.LocalPlayer.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not hrp or not hum then return false end
+    pcall(function() hrp.CFrame = cf end)
+    task.wait(0.1)
+    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+    pcall(function()
+        local VIM = game:GetService("VirtualInputManager")
+        VIM:SendKeyEvent(true, Enum.KeyCode.S, false, game)
+        task.wait(0.2)
+        VIM:SendKeyEvent(false, Enum.KeyCode.S, false, game)
     end)
-    btn.MouseLeave:Connect(function()
-        Tween(btn, .15, { BackgroundColor3 = normalColor or T.Component })
-    end)
-    -- กันกรณีที่ hold click แล้วออก
-    btn.InputEnded:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-            -- ตรวจว่าเมาส์ยังอยู่บน button ไหม
-            local abs = btn.AbsolutePosition
-            local sz  = btn.AbsoluteSize
-            local mx, my = Mouse.X, Mouse.Y
-            if mx < abs.X or mx > abs.X + sz.X or my < abs.Y or my > abs.Y + sz.Y then
-                Tween(btn, .15, { BackgroundColor3 = normalColor or T.Component })
-            end
-        end
-    end)
+    return true
 end
 
--- ============================================================
---  BUILD COMPONENT ROW BASE
--- ============================================================
-local function MakeRow(parent, height)
-    local row = Instance.new("TextButton", parent)
-    row.Size = UDim2.new(1, 0, 0, height or 44)
-    row.BackgroundColor3 = T.Component
-    row.BorderSizePixel = 0
-    row.Text = ""
-    row.AutoButtonColor = false  -- FIX: ปิด auto color ของ Roblox
-    MakeCorner(row, 6)
-    MakePadding(row, 0, 0, 14, 14)
-    AddHover(row, T.Component, T.Hover)
-    return row
-end
-
-local function MakeLabel(parent, text, size, color, bold, xalign)
-    local l = Instance.new("TextLabel", parent)
-    l.BackgroundTransparency = 1
-    l.Text = text or ""
-    l.TextSize = size or 14
-    l.TextColor3 = color or T.Title
-    l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-    l.TextXAlignment = xalign or Enum.TextXAlignment.Left
-    l.TextTruncate = Enum.TextTruncate.AtEnd
-    return l
-end
-
-local function MakeTitleDesc(row, title, desc)
-    -- Title label
-    local tl = MakeLabel(row, title, 15, T.Title, true)
-    tl.Size = UDim2.new(1, -80, 0, 18)
-    tl.Position = UDim2.new(0, 14, 0, 8)
-
-    -- Description label
-    local dl = MakeLabel(row, desc, 12, T.Subtitle, false)
-    dl.Size = UDim2.new(1, -80, 0, 14)
-    dl.Position = UDim2.new(0, 14, 0, 26)
-
-    return tl, dl
-end
-
--- ============================================================
---  NOTIFICATION
--- ============================================================
-local function ShowNotif(title, desc, duration, ntype)
-    local accent = (ntype == "error" and T.Danger)
-                or (ntype == "success" and T.Success)
-                or (ntype == "warning" and T.Warning)
-                or T.Accent
-
-    local card = Instance.new("Frame", NotifHolder)
-    card.Name = "Notif"
-    card.Size = UDim2.new(1, 0, 0, 64)
-    card.BackgroundColor3 = T.Secondary
-    card.BorderSizePixel = 0
-    card.ClipsDescendants = true
-    MakeCorner(card, 8)
-    MakeStroke(card, T.Outline, 1)
-
-    -- accent bar
-    local bar = Instance.new("Frame", card)
-    bar.Size = UDim2.new(0, 3, 1, 0)
-    bar.Position = UDim2.new(0, 0, 0, 0)
-    bar.BackgroundColor3 = accent
-    bar.BorderSizePixel = 0
-    MakeCorner(bar, 3)
-
-    local tl = MakeLabel(card, title, 14, T.Title, true)
-    tl.Size = UDim2.new(1, -20, 0, 18)
-    tl.Position = UDim2.new(0, 14, 0, 10)
-
-    local dl = MakeLabel(card, desc, 12, T.Subtitle)
-    dl.Size = UDim2.new(1, -20, 0, 14)
-    dl.Position = UDim2.new(0, 14, 0, 30)
-
-    -- timer
-    local timer = Instance.new("Frame", card)
-    timer.Size = UDim2.new(1, 0, 0, 2)
-    timer.AnchorPoint = Vector2.new(0, 1)
-    timer.Position = UDim2.new(0, 0, 1, 0)
-    timer.BackgroundColor3 = accent
-    timer.BorderSizePixel = 0
-
-    -- animate in
-    card.GroupTransparency = 1
-    Tween(card, .2, { GroupTransparency = 0 })
-    Tween(timer, duration or 3, { Size = UDim2.new(0, 0, 0, 2) })
-
-    task.delay(duration or 3, function()
-        Tween(card, .2, { GroupTransparency = 1 })
-        task.wait(.25)
-        card:Destroy()
-    end)
-end
-
--- ============================================================
---  THEME PICKER POPUP
--- ============================================================
-local function MakeThemePicker(window, onApply)
-    local overlay = Instance.new("Frame", window)
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    overlay.BackgroundTransparency = 0.5
-    overlay.BorderSizePixel = 0
-    overlay.ZIndex = 50
-
-    local popup = Instance.new("Frame", overlay)
-    popup.Size = UDim2.new(0, 320, 0, 280)
-    popup.AnchorPoint = Vector2.new(0.5, 0.5)
-    popup.Position = UDim2.new(0.5, 0, 0.5, 0)
-    popup.BackgroundColor3 = T.Secondary
-    popup.BorderSizePixel = 0
-    popup.ZIndex = 51
-    MakeCorner(popup, 10)
-    MakeStroke(popup, T.Outline, 1)
-
-    local hdr = MakeLabel(popup, "🎨  Choose Theme", 16, T.Title, true)
-    hdr.Size = UDim2.new(1, -20, 0, 24)
-    hdr.Position = UDim2.new(0, 14, 0, 12)
-
-    local closeBtn = Instance.new("TextButton", popup)
-    closeBtn.Size = UDim2.new(0, 28, 0, 28)
-    closeBtn.Position = UDim2.new(1, -36, 0, 8)
-    closeBtn.BackgroundTransparency = 1
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = T.Subtitle
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 16
-    closeBtn.ZIndex = 52
-    closeBtn.MouseButton1Click:Connect(function() overlay:Destroy() end)
-
-    local scroll = Instance.new("ScrollingFrame", popup)
-    scroll.Size = UDim2.new(1, -20, 1, -56)
-    scroll.Position = UDim2.new(0, 10, 0, 46)
-    scroll.BackgroundTransparency = 1
-    scroll.ScrollBarThickness = 3
-    scroll.ScrollBarImageColor3 = T.Outline
-    scroll.BorderSizePixel = 0
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scroll.ZIndex = 52
-    MakeList(scroll, Enum.FillDirection.Vertical, 8)
-
-    local previewColors = {
-        Dark     = Color3.fromRGB(130, 100, 255),
-        Midnight = Color3.fromRGB(90, 130, 255),
-        Rose     = Color3.fromRGB(230, 80, 120),
-        Nord     = Color3.fromRGB(136, 192, 208),
-    }
-
-    for name, preset in next, Presets do
-        local row = Instance.new("TextButton", scroll)
-        row.Size = UDim2.new(1, 0, 0, 48)
-        row.BackgroundColor3 = T.Component
-        row.BorderSizePixel = 0
-        row.Text = ""
-        row.AutoButtonColor = false
-        row.ZIndex = 53
-        MakeCorner(row, 6)
-        AddHover(row, T.Component, T.Hover)
-
-        local swatch = Instance.new("Frame", row)
-        swatch.Size = UDim2.new(0, 28, 0, 28)
-        swatch.AnchorPoint = Vector2.new(0, 0.5)
-        swatch.Position = UDim2.new(0, 10, 0.5, 0)
-        swatch.BackgroundColor3 = previewColors[name] or preset.Accent
-        swatch.BorderSizePixel = 0
-        swatch.ZIndex = 54
-        MakeCorner(swatch, 6)
-
-        local nl = MakeLabel(row, name, 14, T.Title, true)
-        nl.Size = UDim2.new(1, -60, 0, 18)
-        nl.Position = UDim2.new(0, 48, 0.5, -9)
-        nl.ZIndex = 54
-
-        row.MouseButton1Click:Connect(function()
-            T = preset
-            onApply(preset)
-            overlay:Destroy()
-            ShowNotif("Theme Changed", "Applied: " .. name, 2, "success")
-        end)
-    end
-end
-
--- ============================================================
---  CREATE WINDOW
--- ============================================================
-function Library:CreateWindow(cfg)
-    cfg = cfg or {}
-    local winTitle     = cfg.Title or "PulseUI"
-    local winSize      = cfg.Size or UDim2.new(0, 560, 0, 380)
-    local winTransp    = cfg.Transparency or 0
-    local startTheme   = cfg.Theme or "Dark"
-    local toggleKey    = cfg.MinimizeKeybind or Enum.KeyCode.RightShift
-
-    -- Apply theme preset if string given
-    if type(startTheme) == "string" and Presets[startTheme] then
-        T = Presets[startTheme]
-    elseif type(startTheme) == "table" then
-        T = startTheme
-    end
-
-    -- ── Window frame ──────────────────────────────────────────
-    local window = Instance.new("Frame", ScreenGui)
-    window.Name = "Window"
-    window.Size = winSize
-    window.AnchorPoint = Vector2.new(0.5, 0.5)
-    window.Position = UDim2.new(0.5, 0, 0.5, 0)
-    window.BackgroundColor3 = T.Primary
-    window.BorderSizePixel = 0
-    window.ClipsDescendants = false
-    MakeCorner(window, 10)
-    MakeStroke(window, T.Outline, 1)
-
-    -- drop shadow illusion
-    local shadow = Instance.new("ImageLabel", window)
-    shadow.Name = "Shadow"
-    shadow.Size = UDim2.new(1, 40, 1, 40)
-    shadow.Position = UDim2.new(0, -20, 0, 10)
-    shadow.BackgroundTransparency = 1
-    shadow.Image = "rbxassetid://6014261993"
-    shadow.ImageColor3 = Color3.fromRGB(0,0,0)
-    shadow.ImageTransparency = 0.5
-    shadow.ZIndex = -1
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(49, 49, 450, 450)
-
-    -- ── Titlebar ─────────────────────────────────────────────
-    local titlebar = Instance.new("Frame", window)
-    titlebar.Name = "Titlebar"
-    titlebar.Size = UDim2.new(1, 0, 0, 42)
-    titlebar.BackgroundColor3 = T.Secondary
-    titlebar.BorderSizePixel = 0
-    MakeCorner(titlebar, 10)
-
-    -- fix bottom corners of titlebar
-    local tbfix = Instance.new("Frame", titlebar)
-    tbfix.Size = UDim2.new(1, 0, 0.5, 0)
-    tbfix.Position = UDim2.new(0, 0, 0.5, 0)
-    tbfix.BackgroundColor3 = T.Secondary
-    tbfix.BorderSizePixel = 0
-
-    MakeDraggable(titlebar, window)
-
-    -- traffic lights
-    local lights = Instance.new("Frame", titlebar)
-    lights.Size = UDim2.new(0, 60, 0, 16)
-    lights.Position = UDim2.new(0, 14, 0.5, -8)
-    lights.BackgroundTransparency = 1
-    MakeList(lights, Enum.FillDirection.Horizontal, 8)
-
-    local function MakeLight(color, parent)
-        local btn = Instance.new("TextButton", parent)
-        btn.Size = UDim2.new(0, 13, 0, 13)
-        btn.BackgroundColor3 = color
-        btn.BorderSizePixel = 0
-        btn.Text = ""
-        btn.AutoButtonColor = false
-        MakeCorner(btn, 99)
-        return btn
-    end
-
-    local redBtn    = MakeLight(Color3.fromRGB(255, 95,  87),  lights)
-    local yellowBtn = MakeLight(Color3.fromRGB(255, 189, 46),  lights)
-    local greenBtn  = MakeLight(Color3.fromRGB(39,  201, 63),  lights)
-
-    -- title text
-    local titleLabel = MakeLabel(titlebar, winTitle, 15, T.Title, true, Enum.TextXAlignment.Center)
-    titleLabel.Size = UDim2.new(1, 0, 1, 0)
-    titleLabel.Position = UDim2.new(0, 0, 0, 0)
-
-    -- keybind hint bottom left
-    local keybindHint = Instance.new("Frame", window)
-    keybindHint.Size = UDim2.new(1, 0, 0, 28)
-    keybindHint.AnchorPoint = Vector2.new(0, 1)
-    keybindHint.Position = UDim2.new(0, 0, 1, 0)
-    keybindHint.BackgroundColor3 = T.Secondary
-    keybindHint.BorderSizePixel = 0
-    MakeCorner(keybindHint, 10)
-    local khfix = Instance.new("Frame", keybindHint)
-    khfix.Size = UDim2.new(1, 0, 0.5, 0)
-    khfix.Position = UDim2.new(0, 0, 0, 0)
-    khfix.BackgroundColor3 = T.Secondary
-    khfix.BorderSizePixel = 0
-
-    local dot = Instance.new("Frame", keybindHint)
-    dot.Size = UDim2.new(0, 7, 0, 7)
-    dot.Position = UDim2.new(0, 12, 0.5, -3)
-    dot.BackgroundColor3 = T.Accent
-    dot.BorderSizePixel = 0
-    MakeCorner(dot, 99)
-
-    local khLabel = MakeLabel(keybindHint,
-        tostring(toggleKey):gsub("Enum.KeyCode.", "") .. "  ·  Toggle visibility",
-        11, T.Muted)
-    khLabel.Size = UDim2.new(1, -30, 1, 0)
-    khLabel.Position = UDim2.new(0, 24, 0, 0)
-
-    -- ── Sidebar ───────────────────────────────────────────────
-    local sidebar = Instance.new("Frame", window)
-    sidebar.Name = "Sidebar"
-    sidebar.Size = UDim2.new(0, 170, 1, -42)
-    sidebar.Position = UDim2.new(0, 0, 0, 42)
-    sidebar.BackgroundColor3 = T.Sidebar
-    sidebar.BorderSizePixel = 0
-
-    -- search box in sidebar
-    local searchBox = Instance.new("Frame", sidebar)
-    searchBox.Size = UDim2.new(1, -20, 0, 32)
-    searchBox.Position = UDim2.new(0, 10, 0, 10)
-    searchBox.BackgroundColor3 = T.Component
-    searchBox.BorderSizePixel = 0
-    MakeCorner(searchBox, 6)
-
-    local searchIcon = MakeLabel(searchBox, "⌕", 14, T.Muted, false, Enum.TextXAlignment.Left)
-    searchIcon.Size = UDim2.new(0, 20, 1, 0)
-    searchIcon.Position = UDim2.new(0, 8, 0, 0)
-
-    local searchInput = Instance.new("TextBox", searchBox)
-    searchInput.Size = UDim2.new(1, -32, 1, 0)
-    searchInput.Position = UDim2.new(0, 28, 0, 0)
-    searchInput.BackgroundTransparency = 1
-    searchInput.PlaceholderText = "Search controls..."
-    searchInput.PlaceholderColor3 = T.Muted
-    searchInput.Text = ""
-    searchInput.TextColor3 = T.Title
-    searchInput.Font = Enum.Font.Gotham
-    searchInput.TextSize = 12
-    searchInput.ClearTextOnFocus = false
-
-    -- sidebar tab list
-    local tabList = Instance.new("ScrollingFrame", sidebar)
-    tabList.Name = "TabList"
-    tabList.Size = UDim2.new(1, 0, 1, -60)
-    tabList.Position = UDim2.new(0, 0, 0, 52)
-    tabList.BackgroundTransparency = 1
-    tabList.ScrollBarThickness = 0
-    tabList.BorderSizePixel = 0
-    tabList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    tabList.CanvasSize = UDim2.new(0, 0, 0, 0)
-    MakeList(tabList, Enum.FillDirection.Vertical, 2)
-    MakePadding(tabList, 4, 4, 8, 8)
-
-    -- ── Content area ──────────────────────────────────────────
-    local contentArea = Instance.new("Frame", window)
-    contentArea.Name = "Content"
-    contentArea.Size = UDim2.new(1, -170, 1, -42)
-    contentArea.Position = UDim2.new(0, 170, 0, 42)
-    contentArea.BackgroundColor3 = T.Primary
-    contentArea.BorderSizePixel = 0
-    contentArea.ClipsDescendants = true
-    MakeCorner(contentArea, 10)
-    local cafix = Instance.new("Frame", contentArea)
-    cafix.Size = UDim2.new(0.5, 0, 1, 0)
-    cafix.Position = UDim2.new(0, 0, 0, 0)
-    cafix.BackgroundColor3 = T.Primary
-    cafix.BorderSizePixel = 0
-
-    -- divider
-    local divider = Instance.new("Frame", window)
-    divider.Size = UDim2.new(0, 1, 1, -42)
-    divider.Position = UDim2.new(0, 170, 0, 42)
-    divider.BackgroundColor3 = T.Outline
-    divider.BorderSizePixel = 0
-
-    -- ── State ─────────────────────────────────────────────────
-    local Options     = {}
-    local tabs        = {}       -- { name = { btn, scroll } }
-    local activeTab   = nil
-    local visible     = true
-    local minimized   = false
-    local maximized   = false
-    local savedSize   = winSize
-    local savedPos    = window.Position
-
-    MakeResizable(window, 380, 260)
-
-    -- ── Traffic light actions ─────────────────────────────────
-    -- RED: ปิด UI ทิ้งไปเลย
-    redBtn.MouseButton1Click:Connect(function()
-        Tween(window, .2, { GroupTransparency = 1 })
-        task.wait(.22)
-        window:Destroy()
-        ScreenGui:Destroy()
-    end)
-
-    -- YELLOW: พับ (ย่อเหลือแค่ titlebar)
-    yellowBtn.MouseButton1Click:Connect(function()
-        if minimized then
-            minimized = false
-            sidebar.Visible = true
-            contentArea.Visible = true
-            divider.Visible = true
-            keybindHint.Visible = true
-            Tween(window, .25, { Size = savedSize })
-        else
-            minimized = true
-            savedSize = window.Size
-            sidebar.Visible = false
-            contentArea.Visible = false
-            divider.Visible = false
-            keybindHint.Visible = false
-            Tween(window, .25, { Size = UDim2.new(0, window.AbsoluteSize.X, 0, 42) })
-        end
-    end)
-
-    -- GREEN: ขยายเต็มจอ / กลับ
-    greenBtn.MouseButton1Click:Connect(function()
-        if maximized then
-            maximized = false
-            Tween(window, .25, { Size = savedSize, Position = savedPos })
-        else
-            maximized = true
-            savedSize = window.Size
-            savedPos  = window.Position
-            Tween(window, .25, {
-                Size = UDim2.new(0, workspace.CurrentCamera.ViewportSize.X - 40,
-                                 0, workspace.CurrentCamera.ViewportSize.Y - 40),
-                Position = UDim2.new(0.5, 0, 0.5, 0)
-            })
-        end
-    end)
-
-    -- Keybind toggle visibility
-    UIS.InputBegan:Connect(function(inp, focused)
-        if not focused and inp.KeyCode == toggleKey then
-            visible = not visible
-            window.Visible = visible
-        end
-    end)
-
-    -- ── Tab helpers ───────────────────────────────────────────
-    local function SetActiveTab(name)
-        for n, data in next, tabs do
-            local isActive = (n == name)
-            -- sidebar button
-            if isActive then
-                Tween(data.btn, .2, { BackgroundColor3 = T.Active })
-                data.btn.label.TextColor3 = T.Title
-                data.btn.dot.BackgroundColor3 = T.Accent
-                data.btn.dot.Visible = true
-            else
-                Tween(data.btn, .2, { BackgroundColor3 = Color3.fromRGB(0,0,0) })
-                data.btn.BackgroundTransparency = 1
-                data.btn.BackgroundColor3 = Color3.fromRGB(0,0,0)
-                Tween(data.btn, .2, { BackgroundColor3 = T.Sidebar })
-                data.btn.label.TextColor3 = T.Subtitle
-                data.btn.dot.Visible = false
-            end
-            -- content
-            data.scroll.Visible = isActive
-        end
-        activeTab = name
-    end
-
-    -- ── AddTab ────────────────────────────────────────────────
-    function Options:AddTab(cfg2)
-        local name = cfg2.Title or "Tab"
-        local icon = cfg2.Icon or ""
-
-        -- sidebar button
-        local btn = Instance.new("TextButton", tabList)
-        btn.Name = name
-        btn.Size = UDim2.new(1, 0, 0, 36)
-        btn.BackgroundColor3 = T.Sidebar
-        btn.BorderSizePixel = 0
-        btn.Text = ""
-        btn.AutoButtonColor = false
-        MakeCorner(btn, 6)
-
-        -- active dot
-        local dot = Instance.new("Frame", btn)
-        dot.Name = "dot"
-        dot.Size = UDim2.new(0, 3, 0.6, 0)
-        dot.AnchorPoint = Vector2.new(0, 0.5)
-        dot.Position = UDim2.new(0, 0, 0.5, 0)
-        dot.BackgroundColor3 = T.Accent
-        dot.BorderSizePixel = 0
-        dot.Visible = false
-        MakeCorner(dot, 3)
-        btn.dot = dot
-
-        -- icon
-        if icon ~= "" then
-            local ico = Instance.new("ImageLabel", btn)
-            ico.Size = UDim2.new(0, 18, 0, 18)
-            ico.AnchorPoint = Vector2.new(0, 0.5)
-            ico.Position = UDim2.new(0, 12, 0.5, 0)
-            ico.BackgroundTransparency = 1
-            ico.Image = icon
-            ico.ImageColor3 = T.Subtitle
-        end
-
-        local lbl = MakeLabel(btn, name, 14, T.Subtitle, true)
-        lbl.Name = "label"
-        lbl.Size = UDim2.new(1, -40, 1, 0)
-        lbl.Position = UDim2.new(0, (icon ~= "" and 36 or 14), 0, 0)
-        btn.label = lbl
-
-        -- hover (not active)
-        btn.MouseEnter:Connect(function()
-            if activeTab ~= name then
-                Tween(btn, .15, { BackgroundColor3 = T.Component })
-            end
-        end)
-        btn.MouseLeave:Connect(function()
-            if activeTab ~= name then
-                Tween(btn, .15, { BackgroundColor3 = T.Sidebar })
-            end
-        end)
-
-        -- content scroll
-        local scroll = Instance.new("ScrollingFrame", contentArea)
-        scroll.Name = name
-        scroll.Size = UDim2.new(1, 0, 1, 0)
-        scroll.BackgroundTransparency = 1
-        scroll.ScrollBarThickness = 3
-        scroll.ScrollBarImageColor3 = T.Outline
-        scroll.BorderSizePixel = 0
-        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-        scroll.Visible = false
-        MakeList(scroll, Enum.FillDirection.Vertical, 6)
-        MakePadding(scroll, 10, 10, 10, 10)
-
-        tabs[name] = { btn = btn, scroll = scroll }
-
-        btn.MouseButton1Click:Connect(function()
-            SetActiveTab(name)
-        end)
-
-        -- activate first tab automatically
-        if not activeTab then SetActiveTab(name) end
-
-        -- search filter
-        searchInput:GetPropertyChangedSignal("Text"):Connect(function()
-            local q = searchInput.Text:lower()
-            if q == "" then
-                btn.Visible = true
-                return
-            end
-            btn.Visible = name:lower():find(q, 1, true) ~= nil
-        end)
-
-        return scroll
-    end
-
-    -- ── AddSection ────────────────────────────────────────────
-    function Options:AddSection(cfg2)
-        local lbl = MakeLabel(cfg2.Tab, cfg2.Name, 11, T.Muted, true)
-        lbl.Size = UDim2.new(1, 0, 0, 20)
-        lbl.LayoutOrder = 0
-        MakePadding(lbl, 4, 0, 4, 0)
-    end
-
-    -- ── AddButton ─────────────────────────────────────────────
-    function Options:AddButton(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-
-        local tl, dl = MakeTitleDesc(row, cfg2.Title, cfg2.Description)
-
-        local arrow = MakeLabel(row, "›", 20, T.Muted, true, Enum.TextXAlignment.Right)
-        arrow.Size = UDim2.new(0, 20, 1, 0)
-        arrow.Position = UDim2.new(1, -30, 0, 0)
-
-        row.MouseButton1Click:Connect(function()
-            Tween(row, .08, { BackgroundColor3 = T.Active })
-            task.delay(.1, function() Tween(row, .15, { BackgroundColor3 = T.Component }) end)
-            cfg2.Callback()
-        end)
-    end
-
-    -- ── AddToggle ─────────────────────────────────────────────
-    function Options:AddToggle(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        local value = cfg2.Default or false
-        SavedConfig[cfg2.Title] = value
-
-        MakeTitleDesc(row, cfg2.Title, cfg2.Description)
-
-        -- pill toggle
-        local pill = Instance.new("Frame", row)
-        pill.Size = UDim2.new(0, 40, 0, 22)
-        pill.AnchorPoint = Vector2.new(1, 0.5)
-        pill.Position = UDim2.new(1, -14, 0.5, 0)
-        pill.BackgroundColor3 = T.Component
-        pill.BorderSizePixel = 0
-        MakeCorner(pill, 99)
-
-        local circle = Instance.new("Frame", pill)
-        circle.Size = UDim2.new(0, 16, 0, 16)
-        circle.AnchorPoint = Vector2.new(0.5, 0.5)
-        circle.Position = UDim2.new(0, 11, 0.5, 0)
-        circle.BackgroundColor3 = T.Muted
-        circle.BorderSizePixel = 0
-        MakeCorner(circle, 99)
-
-        local function SetVal(v)
-            value = v
-            SavedConfig[cfg2.Title] = v
-            if v then
-                Tween(pill,   .2, { BackgroundColor3 = T.Accent })
-                Tween(circle, .2, { Position = UDim2.new(1, -11, 0.5, 0), BackgroundColor3 = Color3.fromRGB(255,255,255) })
-            else
-                Tween(pill,   .2, { BackgroundColor3 = T.Component })
-                Tween(circle, .2, { Position = UDim2.new(0, 11, 0.5, 0), BackgroundColor3 = T.Muted })
-            end
-        end
-
-        SetVal(value)
-        row.MouseButton1Click:Connect(function()
-            SetVal(not value)
-            cfg2.Callback(value)
-        end)
-
-        return { Set = SetVal, Get = function() return value end }
-    end
-
-    -- ── AddSlider ─────────────────────────────────────────────
-    function Options:AddSlider(cfg2)
-        local row = MakeRow(cfg2.Tab, 64)
-        local minVal = cfg2.MinValue or 0
-        local maxVal = cfg2.MaxValue or 100
-        local value  = cfg2.Default or minVal
-        SavedConfig[cfg2.Title] = value
-
-        local tl = MakeLabel(row, cfg2.Title, 15, T.Title, true)
-        tl.Size = UDim2.new(1, -70, 0, 18)
-        tl.Position = UDim2.new(0, 14, 0, 8)
-
-        local dl = MakeLabel(row, cfg2.Description or "", 12, T.Subtitle)
-        dl.Size = UDim2.new(1, -70, 0, 14)
-        dl.Position = UDim2.new(0, 14, 0, 26)
-
-        -- value box
-        local valBox = Instance.new("TextBox", row)
-        valBox.Size = UDim2.new(0, 46, 0, 22)
-        valBox.AnchorPoint = Vector2.new(1, 0)
-        valBox.Position = UDim2.new(1, -14, 0, 10)
-        valBox.BackgroundColor3 = T.Component
-        valBox.BorderSizePixel = 0
-        valBox.Text = tostring(value)
-        valBox.TextColor3 = T.Title
-        valBox.Font = Enum.Font.GothamBold
-        valBox.TextSize = 12
-        valBox.TextXAlignment = Enum.TextXAlignment.Center
-        MakeCorner(valBox, 4)
-
-        -- track
-        local track = Instance.new("Frame", row)
-        track.Size = UDim2.new(1, -28, 0, 6)
-        track.Position = UDim2.new(0, 14, 0, 50)
-        track.BackgroundColor3 = T.Outline
-        track.BorderSizePixel = 0
-        MakeCorner(track, 99)
-
-        local fill = Instance.new("Frame", track)
-        fill.BackgroundColor3 = T.Accent
-        fill.BorderSizePixel = 0
-        fill.Size = UDim2.fromScale(math.clamp((value - minVal) / (maxVal - minVal), 0, 1), 1)
-        MakeCorner(fill, 99)
-
-        local thumb = Instance.new("Frame", fill)
-        thumb.Size = UDim2.new(0, 14, 0, 14)
-        thumb.AnchorPoint = Vector2.new(1, 0.5)
-        thumb.Position = UDim2.new(1, 0, 0.5, 0)
-        thumb.BackgroundColor3 = Color3.fromRGB(255,255,255)
-        thumb.BorderSizePixel = 0
-        MakeCorner(thumb, 99)
-        MakeStroke(thumb, T.Accent, 2)
-
-        local function SetVal(v)
-            if cfg2.AllowDecimals then
-                local p = 10^(cfg2.DecimalAmount or 2)
-                v = math.floor(v * p + 0.5) / p
-            else
-                v = math.round(v)
-            end
-            v = math.clamp(v, minVal, maxVal)
-            value = v
-            SavedConfig[cfg2.Title] = v
-            local scale = (v - minVal) / (maxVal - minVal)
-            fill.Size = UDim2.fromScale(scale, 1)
-            valBox.Text = tostring(v)
-            cfg2.Callback(v)
-        end
-
-        local dragging = false
-        local function UpdateFromMouse()
-            local scale = math.clamp((Mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-            SetVal(minVal + scale * (maxVal - minVal))
-        end
-
-        track.InputBegan:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true; UpdateFromMouse()
-            end
-        end)
-        UIS.InputChanged:Connect(function(inp)
-            if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
-                UpdateFromMouse()
-            end
-        end)
-        UIS.InputEnded:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-        end)
-        valBox.FocusLost:Connect(function()
-            SetVal(tonumber(valBox.Text) or value)
-        end)
-
-        SetVal(value)
-        return { Set = SetVal, Get = function() return value end }
-    end
-
-    -- ── AddDropdown ───────────────────────────────────────────
-    function Options:AddDropdown(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        local selected = cfg2.Default
-
-        MakeTitleDesc(row, cfg2.Title, cfg2.Description)
-
-        local selLabel = MakeLabel(row, selected or "Select...", 12, T.Subtitle, false, Enum.TextXAlignment.Right)
-        selLabel.Size = UDim2.new(0, 100, 1, 0)
-        selLabel.Position = UDim2.new(1, -120, 0, 0)
-
-        local arrow = MakeLabel(row, "⌄", 14, T.Muted, true, Enum.TextXAlignment.Right)
-        arrow.Size = UDim2.new(0, 20, 1, 0)
-        arrow.Position = UDim2.new(1, -22, 0, 0)
-
-        row.MouseButton1Click:Connect(function()
-            -- popup
-            local popup = Instance.new("Frame", window)
-            popup.Size = UDim2.new(0, 200, 0, 0)
-            popup.Position = UDim2.new(0, row.AbsolutePosition.X - window.AbsolutePosition.X,
-                                       0, row.AbsolutePosition.Y - window.AbsolutePosition.Y + 52)
-            popup.BackgroundColor3 = T.Secondary
-            popup.BorderSizePixel = 0
-            popup.ZIndex = 30
-            popup.ClipsDescendants = true
-            MakeCorner(popup, 8)
-            MakeStroke(popup, T.Outline, 1)
-
-            local scroll = Instance.new("ScrollingFrame", popup)
-            scroll.Size = UDim2.new(1, 0, 1, 0)
-            scroll.BackgroundTransparency = 1
-            scroll.ScrollBarThickness = 3
-            scroll.ScrollBarImageColor3 = T.Outline
-            scroll.BorderSizePixel = 0
-            scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            scroll.CanvasSize = UDim2.new(0,0,0,0)
-            scroll.ZIndex = 31
-            MakeList(scroll, Enum.FillDirection.Vertical, 2)
-            MakePadding(scroll, 4, 4, 4, 4)
-
-            local totalH = 8
-            for _, opt in ipairs(cfg2.Options) do
-                local optBtn = Instance.new("TextButton", scroll)
-                optBtn.Size = UDim2.new(1, 0, 0, 32)
-                optBtn.BackgroundColor3 = (opt == selected) and T.Active or T.Component
-                optBtn.BorderSizePixel = 0
-                optBtn.Text = ""
-                optBtn.AutoButtonColor = false
-                optBtn.ZIndex = 32
-                MakeCorner(optBtn, 4)
-                AddHover(optBtn, (opt == selected) and T.Active or T.Component, T.Hover)
-
-                local ol = MakeLabel(optBtn, opt, 13, T.Title, (opt == selected))
-                ol.Size = UDim2.new(1, -12, 1, 0)
-                ol.Position = UDim2.new(0, 10, 0, 0)
-                ol.ZIndex = 33
-
-                optBtn.MouseButton1Click:Connect(function()
-                    selected = opt
-                    selLabel.Text = opt
-                    cfg2.Callback(opt)
-                    popup:Destroy()
+local function RunFarm(data, folderName, itemName)
+    task.spawn(function()
+        while data.Enabled do
+            local truck = GetTruck()
+            if truck then
+                pcall(function()
+                    game.ReplicatedStorage.Remote.data:FireServer("post", itemName, Config.Farm.Settings.CollectAmount, truck)
                 end)
-                totalH = totalH + 34
             end
-
-            local finalH = math.min(totalH, 180)
-            Tween(popup, .2, { Size = UDim2.new(0, 200, 0, finalH) })
-
-            -- close on outside click
-            local closeConn
-            closeConn = UIS.InputBegan:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                    local abs = popup.AbsolutePosition
-                    local sz  = popup.AbsoluteSize
-                    if Mouse.X < abs.X or Mouse.X > abs.X+sz.X or Mouse.Y < abs.Y or Mouse.Y > abs.Y+sz.Y then
-                        popup:Destroy()
-                        closeConn:Disconnect()
-                    end
-                end
-            end)
-        end)
-    end
-
-    -- ── AddMultiDropdown ──────────────────────────────────────
-    function Options:AddMultiDropdown(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        local selected = {}
-        SavedConfig[cfg2.Title] = selected
-
-        MakeTitleDesc(row, cfg2.Title, cfg2.Description)
-
-        local selLabel = MakeLabel(row, "None", 12, T.Subtitle, false, Enum.TextXAlignment.Right)
-        selLabel.Size = UDim2.new(0, 110, 1, 0)
-        selLabel.Position = UDim2.new(1, -130, 0, 0)
-        selLabel.TextTruncate = Enum.TextTruncate.AtEnd
-
-        local arrow = MakeLabel(row, "⌄", 14, T.Muted, true, Enum.TextXAlignment.Right)
-        arrow.Size = UDim2.new(0, 20, 1, 0)
-        arrow.Position = UDim2.new(1, -22, 0, 0)
-
-        local function UpdateLabel()
-            local keys = {}
-            for k in next, selected do table.insert(keys, k) end
-            selLabel.Text = #keys == 0 and "None" or table.concat(keys, ", ")
+            task.wait(Config.Farm.Settings.TeleportDelay)
         end
-
-        row.MouseButton1Click:Connect(function()
-            local popup = Instance.new("Frame", window)
-            popup.Size = UDim2.new(0, 220, 0, 0)
-            popup.Position = UDim2.new(0, row.AbsolutePosition.X - window.AbsolutePosition.X,
-                                       0, row.AbsolutePosition.Y - window.AbsolutePosition.Y + 52)
-            popup.BackgroundColor3 = T.Secondary
-            popup.BorderSizePixel = 0
-            popup.ZIndex = 30
-            popup.ClipsDescendants = true
-            MakeCorner(popup, 8)
-            MakeStroke(popup, T.Outline, 1)
-
-            local scroll = Instance.new("ScrollingFrame", popup)
-            scroll.Size = UDim2.new(1, 0, 1, 0)
-            scroll.BackgroundTransparency = 1
-            scroll.ScrollBarThickness = 3
-            scroll.ScrollBarImageColor3 = T.Outline
-            scroll.BorderSizePixel = 0
-            scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            scroll.CanvasSize = UDim2.new(0,0,0,0)
-            scroll.ZIndex = 31
-            MakeList(scroll, Enum.FillDirection.Vertical, 2)
-            MakePadding(scroll, 4, 4, 4, 4)
-
-            local totalH = 8
-            for _, opt in ipairs(cfg2.Options) do
-                local optBtn = Instance.new("TextButton", scroll)
-                optBtn.Size = UDim2.new(1, 0, 0, 32)
-                optBtn.BackgroundColor3 = selected[opt] and T.Active or T.Component
-                optBtn.BorderSizePixel = 0
-                optBtn.Text = ""
-                optBtn.AutoButtonColor = false
-                optBtn.ZIndex = 32
-                MakeCorner(optBtn, 4)
-
-                local checkBox = Instance.new("Frame", optBtn)
-                checkBox.Size = UDim2.new(0, 16, 0, 16)
-                checkBox.AnchorPoint = Vector2.new(0, 0.5)
-                checkBox.Position = UDim2.new(0, 8, 0.5, 0)
-                checkBox.BackgroundColor3 = selected[opt] and T.Accent or T.Outline
-                checkBox.BorderSizePixel = 0
-                checkBox.ZIndex = 33
-                MakeCorner(checkBox, 4)
-
-                local checkMark = MakeLabel(checkBox, "✓", 11, Color3.fromRGB(255,255,255), true, Enum.TextXAlignment.Center)
-                checkMark.Size = UDim2.new(1, 0, 1, 0)
-                checkMark.Visible = selected[opt] ~= nil
-                checkMark.ZIndex = 34
-
-                local ol = MakeLabel(optBtn, opt, 13, T.Title, selected[opt] ~= nil)
-                ol.Size = UDim2.new(1, -36, 1, 0)
-                ol.Position = UDim2.new(0, 32, 0, 0)
-                ol.ZIndex = 33
-
-                optBtn.MouseButton1Click:Connect(function()
-                    if selected[opt] then
-                        selected[opt] = nil
-                        Tween(optBtn, .15, { BackgroundColor3 = T.Component })
-                        Tween(checkBox, .15, { BackgroundColor3 = T.Outline })
-                        checkMark.Visible = false
-                        ol.Font = Enum.Font.Gotham
-                    else
-                        selected[opt] = true
-                        Tween(optBtn, .15, { BackgroundColor3 = T.Active })
-                        Tween(checkBox, .15, { BackgroundColor3 = T.Accent })
-                        checkMark.Visible = true
-                        ol.Font = Enum.Font.GothamBold
-                    end
-                    UpdateLabel()
-                    local vals = {}
-                    for k in next, selected do table.insert(vals, k) end
-                    cfg2.Callback(vals)
-                    SavedConfig[cfg2.Title] = selected
-                end)
-
-                totalH = totalH + 34
+    end)
+    task.spawn(function()
+        while data.Enabled do
+            local sc = workspace:FindFirstChild("JOB")
+            sc = sc and sc:FindFirstChild("JOB")
+            sc = sc and sc:FindFirstChild("SCRIPT")
+            local folder = sc and sc:FindFirstChild(folderName)
+            if not folder then task.wait(1) continue end
+            local items = {}
+            for _, g in pairs(folder:GetChildren()) do
+                if g:IsA("BasePart") then table.insert(items, g) end
             end
-
-            local finalH = math.min(totalH, 200)
-            Tween(popup, .2, { Size = UDim2.new(0, 220, 0, finalH) })
-
-            local closeConn
-            closeConn = UIS.InputBegan:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                    local abs = popup.AbsolutePosition
-                    local sz  = popup.AbsoluteSize
-                    if Mouse.X < abs.X or Mouse.X > abs.X+sz.X or Mouse.Y < abs.Y or Mouse.Y > abs.Y+sz.Y then
-                        popup:Destroy()
-                        closeConn:Disconnect()
-                    end
+            if #items == 0 then task.wait(1) continue end
+            local S = Config.Farm.Settings
+            if S.FarmMode == 2 then
+                if data.Index > #items then data.Index=1 data.TeleportCounter=0 task.wait(0.5) continue end
+                local item = items[data.Index]
+                data.TeleportCounter += 1
+                if TpJump(item.CFrame) then
+                    if data.TeleportCounter >= S.TeleportCount then data.Index+=1 data.TeleportCounter=0 end
+                    task.wait(S.TeleportDelay)
                 end
-            end)
-        end)
-
-        return { Get = function() return selected end, SetLabel = UpdateLabel }
-    end
-
-    -- ── AddInput ──────────────────────────────────────────────
-    function Options:AddInput(cfg2)
-        local row = MakeRow(cfg2.Tab, 64)
-
-        local tl = MakeLabel(row, cfg2.Title, 15, T.Title, true)
-        tl.Size = UDim2.new(1, -28, 0, 18)
-        tl.Position = UDim2.new(0, 14, 0, 8)
-
-        local dl = MakeLabel(row, cfg2.Description or "", 12, T.Subtitle)
-        dl.Size = UDim2.new(1, -28, 0, 14)
-        dl.Position = UDim2.new(0, 14, 0, 26)
-
-        local inputFrame = Instance.new("Frame", row)
-        inputFrame.Size = UDim2.new(1, -28, 0, 26)
-        inputFrame.Position = UDim2.new(0, 14, 0, 36)
-        inputFrame.BackgroundColor3 = T.Component
-        inputFrame.BorderSizePixel = 0
-        MakeCorner(inputFrame, 4)
-        MakeStroke(inputFrame, T.Outline, 1)
-
-        local tb = Instance.new("TextBox", inputFrame)
-        tb.Size = UDim2.new(1, -16, 1, 0)
-        tb.Position = UDim2.new(0, 8, 0, 0)
-        tb.BackgroundTransparency = 1
-        tb.PlaceholderText = cfg2.Placeholder or "Type here..."
-        tb.PlaceholderColor3 = T.Muted
-        tb.Text = ""
-        tb.TextColor3 = T.Title
-        tb.Font = Enum.Font.Gotham
-        tb.TextSize = 13
-        tb.ClearTextOnFocus = false
-
-        tb.Focused:Connect(function() MakeStroke(inputFrame, T.Accent, 1) end)
-        tb.FocusLost:Connect(function()
-            MakeStroke(inputFrame, T.Outline, 1)
-            if cfg2.Callback then cfg2.Callback(tb.Text) end
-        end)
-
-        row.MouseButton1Click:Connect(function() tb:CaptureFocus() end)
-    end
-
-    -- ── AddKeybind ────────────────────────────────────────────
-    function Options:AddKeybind(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        MakeTitleDesc(row, cfg2.Title, cfg2.Description)
-
-        local bindLabel = MakeLabel(row, "None", 12, T.Accent, true, Enum.TextXAlignment.Right)
-        bindLabel.Size = UDim2.new(0, 80, 1, 0)
-        bindLabel.Position = UDim2.new(1, -90, 0, 0)
-
-        local listening = false
-
-        row.MouseButton1Click:Connect(function()
-            if listening then return end
-            listening = true
-            bindLabel.Text = "..."
-            bindLabel.TextColor3 = T.Warning
-
-            local conn
-            conn = UIS.InputBegan:Connect(function(inp, focused)
-                if focused then return end
-                conn:Disconnect()  -- disconnect ngay
-                listening = false
-
-                local text
-                if inp.UserInputType == Enum.UserInputType.Keyboard then
-                    text = tostring(inp.KeyCode):gsub("Enum.KeyCode.", "")
-                    SavedBinds[cfg2.Title] = inp.KeyCode
+            else
+                if CountT(data.Visited) >= #items then data.Visited={} task.wait(0.5) end
+                local target, key
+                for _, g in pairs(folder:GetChildren()) do
+                    if not g:IsA("BasePart") then continue end
+                    local k = GetPosKey(g.Position)
+                    if not data.Visited[k] then target=g key=k break end
+                end
+                if target then
+                    data.TeleportCounter += 1
+                    if TpJump(target.CFrame) then
+                        if data.TeleportCounter >= S.TeleportCount then data.Visited[key]=true data.TeleportCounter=0 end
+                        task.wait(S.TeleportDelay)
+                    end
                 else
-                    text = tostring(inp.UserInputType):gsub("Enum.UserInputType.MouseButton", "MB")
-                    SavedBinds[cfg2.Title] = inp.UserInputType
-                end
-                bindLabel.Text = text
-                bindLabel.TextColor3 = T.Accent
-                cfg2.Callback(inp)
-            end)
-        end)
-    end
-
-    -- ── AddSearchBar ──────────────────────────────────────────
-    function Options:AddSearchBar(cfg2)
-        local row = MakeRow(cfg2.Tab, 64)
-
-        local tl = MakeLabel(row, cfg2.Title or "Search", 15, T.Title, true)
-        tl.Size = UDim2.new(1, -28, 0, 18)
-        tl.Position = UDim2.new(0, 14, 0, 8)
-
-        local inputFrame = Instance.new("Frame", row)
-        inputFrame.Size = UDim2.new(1, -28, 0, 26)
-        inputFrame.Position = UDim2.new(0, 14, 0, 30)
-        inputFrame.BackgroundColor3 = T.Component
-        inputFrame.BorderSizePixel = 0
-        MakeCorner(inputFrame, 4)
-        MakeStroke(inputFrame, T.Outline, 1)
-
-        local icon = MakeLabel(inputFrame, "⌕", 14, T.Muted)
-        icon.Size = UDim2.new(0, 20, 1, 0)
-        icon.Position = UDim2.new(0, 4, 0, 0)
-
-        local tb = Instance.new("TextBox", inputFrame)
-        tb.Size = UDim2.new(1, -30, 1, 0)
-        tb.Position = UDim2.new(0, 26, 0, 0)
-        tb.BackgroundTransparency = 1
-        tb.PlaceholderText = cfg2.Placeholder or "Search..."
-        tb.PlaceholderColor3 = T.Muted
-        tb.Text = ""
-        tb.TextColor3 = T.Title
-        tb.Font = Enum.Font.Gotham
-        tb.TextSize = 12
-        tb.ClearTextOnFocus = false
-
-        tb:GetPropertyChangedSignal("Text"):Connect(function()
-            cfg2.Callback(tb.Text)
-        end)
-        row.MouseButton1Click:Connect(function() tb:CaptureFocus() end)
-    end
-
-    -- ── AddColorPicker ────────────────────────────────────────
-    function Options:AddColorPicker(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        local currentColor = cfg2.Default or Color3.fromRGB(255, 80, 80)
-        SavedConfig[cfg2.Title] = currentColor
-
-        MakeTitleDesc(row, cfg2.Title, cfg2.Description or "Click to pick")
-
-        local swatch = Instance.new("Frame", row)
-        swatch.Size = UDim2.new(0, 28, 0, 28)
-        swatch.AnchorPoint = Vector2.new(1, 0.5)
-        swatch.Position = UDim2.new(1, -14, 0.5, 0)
-        swatch.BackgroundColor3 = currentColor
-        swatch.BorderSizePixel = 0
-        MakeCorner(swatch, 6)
-        MakeStroke(swatch, T.Outline, 1)
-
-        row.MouseButton1Click:Connect(function()
-            -- picker popup
-            local overlay = Instance.new("Frame", window)
-            overlay.Size = UDim2.new(1, 0, 1, 0)
-            overlay.BackgroundTransparency = 0.6
-            overlay.BackgroundColor3 = Color3.fromRGB(0,0,0)
-            overlay.BorderSizePixel = 0
-            overlay.ZIndex = 40
-
-            local popup = Instance.new("Frame", overlay)
-            popup.Size = UDim2.new(0, 280, 0, 310)
-            popup.AnchorPoint = Vector2.new(0.5, 0.5)
-            popup.Position = UDim2.new(0.5, 0, 0.5, 0)
-            popup.BackgroundColor3 = T.Secondary
-            popup.BorderSizePixel = 0
-            popup.ZIndex = 41
-            MakeCorner(popup, 10)
-            MakeStroke(popup, T.Outline, 1)
-
-            local hdr = MakeLabel(popup, "Color Picker", 15, T.Title, true)
-            hdr.Size = UDim2.new(1, -20, 0, 24)
-            hdr.Position = UDim2.new(0, 14, 0, 10)
-
-            local xBtn = Instance.new("TextButton", popup)
-            xBtn.Size = UDim2.new(0, 28, 0, 28)
-            xBtn.Position = UDim2.new(1, -36, 0, 6)
-            xBtn.BackgroundTransparency = 1
-            xBtn.Text = "✕"
-            xBtn.TextColor3 = T.Subtitle
-            xBtn.Font = Enum.Font.GothamBold
-            xBtn.TextSize = 14
-            xBtn.ZIndex = 42
-            xBtn.MouseButton1Click:Connect(function() overlay:Destroy() end)
-
-            local H, S, V = Color3.toHSV(currentColor)
-
-            -- SV box
-            local svBox = Instance.new("ImageLabel", popup)
-            svBox.Size = UDim2.new(0, 248, 0, 160)
-            svBox.Position = UDim2.new(0.5, -124, 0, 42)
-            svBox.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
-            svBox.Image = "rbxassetid://4155801252"
-            svBox.BorderSizePixel = 0
-            svBox.ZIndex = 42
-            MakeCorner(svBox, 6)
-
-            local blackOverlay = Instance.new("ImageLabel", svBox)
-            blackOverlay.Size = UDim2.new(1,0,1,0)
-            blackOverlay.Image = "rbxassetid://4155801252"
-            blackOverlay.ImageColor3 = Color3.fromRGB(0,0,0)
-            blackOverlay.Rotation = 90
-            blackOverlay.BackgroundTransparency = 1
-            blackOverlay.ZIndex = 43
-
-            local svCursor = Instance.new("Frame", svBox)
-            svCursor.Size = UDim2.new(0, 12, 0, 12)
-            svCursor.AnchorPoint = Vector2.new(0.5, 0.5)
-            svCursor.Position = UDim2.new(S, 0, 1-V, 0)
-            svCursor.BackgroundColor3 = Color3.fromRGB(255,255,255)
-            svCursor.BorderSizePixel = 0
-            svCursor.ZIndex = 44
-            MakeCorner(svCursor, 99)
-            MakeStroke(svCursor, Color3.fromRGB(0,0,0), 1, 0.5)
-
-            -- hue bar
-            local hueBar = Instance.new("ImageLabel", popup)
-            hueBar.Size = UDim2.new(0, 248, 0, 14)
-            hueBar.Position = UDim2.new(0.5, -124, 0, 210)
-            hueBar.Image = "rbxassetid://698052001"
-            hueBar.BorderSizePixel = 0
-            hueBar.ZIndex = 42
-            MakeCorner(hueBar, 4)
-
-            local hueCursor = Instance.new("Frame", hueBar)
-            hueCursor.Size = UDim2.new(0, 5, 1, 4)
-            hueCursor.AnchorPoint = Vector2.new(0.5, 0.5)
-            hueCursor.Position = UDim2.new(H, 0, 0.5, 0)
-            hueCursor.BackgroundColor3 = Color3.fromRGB(255,255,255)
-            hueCursor.BorderSizePixel = 0
-            hueCursor.ZIndex = 43
-            MakeCorner(hueCursor, 3)
-
-            -- hex input
-            local hexFrame = Instance.new("Frame", popup)
-            hexFrame.Size = UDim2.new(0, 140, 0, 28)
-            hexFrame.Position = UDim2.new(0, 16, 0, 234)
-            hexFrame.BackgroundColor3 = T.Component
-            hexFrame.BorderSizePixel = 0
-            hexFrame.ZIndex = 42
-            MakeCorner(hexFrame, 4)
-            MakeStroke(hexFrame, T.Outline, 1)
-
-            local hexBox = Instance.new("TextBox", hexFrame)
-            hexBox.Size = UDim2.new(1, -10, 1, 0)
-            hexBox.Position = UDim2.new(0, 8, 0, 0)
-            hexBox.BackgroundTransparency = 1
-            hexBox.Text = string.format("#%02X%02X%02X",
-                math.round(currentColor.R*255),
-                math.round(currentColor.G*255),
-                math.round(currentColor.B*255))
-            hexBox.TextColor3 = T.Title
-            hexBox.Font = Enum.Font.GothamMono
-            hexBox.TextSize = 12
-            hexBox.ZIndex = 43
-
-            -- preview
-            local preview = Instance.new("Frame", popup)
-            preview.Size = UDim2.new(0, 80, 0, 28)
-            preview.Position = UDim2.new(1, -96, 0, 234)
-            preview.BackgroundColor3 = currentColor
-            preview.BorderSizePixel = 0
-            preview.ZIndex = 42
-            MakeCorner(preview, 4)
-
-            -- apply
-            local applyBtn = Instance.new("TextButton", popup)
-            applyBtn.Size = UDim2.new(1, -32, 0, 32)
-            applyBtn.Position = UDim2.new(0, 16, 0, 270)
-            applyBtn.BackgroundColor3 = T.Accent
-            applyBtn.BorderSizePixel = 0
-            applyBtn.Text = "Apply"
-            applyBtn.TextColor3 = Color3.fromRGB(255,255,255)
-            applyBtn.Font = Enum.Font.GothamBold
-            applyBtn.TextSize = 13
-            applyBtn.ZIndex = 42
-            MakeCorner(applyBtn, 6)
-
-            local function UpdateColor()
-                local c = Color3.fromHSV(H, S, V)
-                currentColor = c
-                svBox.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
-                svCursor.Position = UDim2.new(S, 0, 1-V, 0)
-                hueCursor.Position = UDim2.new(H, 0, 0.5, 0)
-                preview.BackgroundColor3 = c
-                hexBox.Text = string.format("#%02X%02X%02X",
-                    math.round(c.R*255), math.round(c.G*255), math.round(c.B*255))
-            end
-
-            local dragHue, dragSV = false, false
-            hueBar.InputBegan:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragHue = true end
-            end)
-            svBox.InputBegan:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragSV = true end
-            end)
-            UIS.InputEnded:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragHue = false; dragSV = false
-                end
-            end)
-            UIS.InputChanged:Connect(function(inp)
-                if inp.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-                if dragHue then
-                    H = math.clamp((Mouse.X - hueBar.AbsolutePosition.X) / hueBar.AbsoluteSize.X, 0, 1)
-                    UpdateColor()
-                elseif dragSV then
-                    S = math.clamp((Mouse.X - svBox.AbsolutePosition.X) / svBox.AbsoluteSize.X, 0, 1)
-                    V = 1 - math.clamp((Mouse.Y - svBox.AbsolutePosition.Y) / svBox.AbsoluteSize.Y, 0, 1)
-                    UpdateColor()
-                end
-            end)
-            hexBox.FocusLost:Connect(function()
-                local hex = hexBox.Text:gsub("#","")
-                if #hex == 6 then
-                    local r = tonumber(hex:sub(1,2),16) or 0
-                    local g = tonumber(hex:sub(3,4),16) or 0
-                    local b = tonumber(hex:sub(5,6),16) or 0
-                    H, S, V = Color3.toHSV(Color3.fromRGB(r,g,b))
-                    UpdateColor()
-                end
-            end)
-            applyBtn.MouseButton1Click:Connect(function()
-                cfg2.Callback(currentColor)
-                swatch.BackgroundColor3 = currentColor
-                SavedConfig[cfg2.Title] = currentColor
-                overlay:Destroy()
-            end)
-        end)
-
-        return { Get = function() return currentColor end, Set = function(c) currentColor = c; swatch.BackgroundColor3 = c end }
-    end
-
-    -- ── AddParagraph ──────────────────────────────────────────
-    function Options:AddParagraph(cfg2)
-        local row = Instance.new("Frame", cfg2.Tab)
-        row.Size = UDim2.new(1, 0, 0, 56)
-        row.BackgroundColor3 = T.Component
-        row.BorderSizePixel = 0
-        MakeCorner(row, 6)
-        MakePadding(row, 8, 8, 14, 14)
-
-        local tl = MakeLabel(row, cfg2.Title, 14, T.Title, true)
-        tl.Size = UDim2.new(1, 0, 0, 18)
-        tl.Position = UDim2.new(0, 14, 0, 8)
-
-        local dl = MakeLabel(row, cfg2.Description, 12, T.Subtitle)
-        dl.Size = UDim2.new(1, 0, 0, 14)
-        dl.Position = UDim2.new(0, 14, 0, 28)
-        dl.TextWrapped = true
-    end
-
-    -- ── AddValueDisplay ───────────────────────────────────────
-    function Options:AddValueDisplay(cfg2)
-        local row = Instance.new("Frame", cfg2.Tab)
-        row.Size = UDim2.new(1, 0, 0, 44)
-        row.BackgroundColor3 = T.Component
-        row.BorderSizePixel = 0
-        MakeCorner(row, 6)
-
-        local tl = MakeLabel(row, cfg2.Title, 13, T.Subtitle, false)
-        tl.Size = UDim2.new(0.5, 0, 1, 0)
-        tl.Position = UDim2.new(0, 14, 0, 0)
-
-        local vl = MakeLabel(row, tostring(cfg2.Default or "—"), 16, T.Title, true, Enum.TextXAlignment.Right)
-        vl.Size = UDim2.new(0.5, -14, 1, 0)
-        vl.Position = UDim2.new(0.5, 0, 0, 0)
-
-        return { Set = function(v) vl.Text = tostring(v) end }
-    end
-
-    -- ── AddNestedTabs ─────────────────────────────────────────
-    function Options:AddNestedTabs(cfg2)
-        local container = Instance.new("Frame", cfg2.Tab)
-        container.Size = UDim2.new(1, 0, 0, 0)
-        container.AutomaticSize = Enum.AutomaticSize.Y
-        container.BackgroundTransparency = 1
-
-        local tabBar = Instance.new("Frame", container)
-        tabBar.Size = UDim2.new(1, 0, 0, 32)
-        tabBar.BackgroundColor3 = T.Component
-        tabBar.BorderSizePixel = 0
-        MakeCorner(tabBar, 6)
-        MakeList(tabBar, Enum.FillDirection.Horizontal, 2)
-        MakePadding(tabBar, 4, 4, 4, 4)
-
-        local content = Instance.new("Frame", container)
-        content.Size = UDim2.new(1, 0, 0, 0)
-        content.AutomaticSize = Enum.AutomaticSize.Y
-        content.Position = UDim2.new(0, 0, 0, 38)
-        content.BackgroundTransparency = 1
-
-        local subFrames, subBtns = {}, {}
-        local activeSub = nil
-
-        local function SetSub(name)
-            for n, f in next, subFrames do f.Visible = (n == name) end
-            for n, b in next, subBtns do
-                if n == name then
-                    Tween(b, .15, { BackgroundColor3 = T.Accent })
-                    b.label.TextColor3 = Color3.fromRGB(255,255,255)
-                else
-                    Tween(b, .15, { BackgroundColor3 = Color3.fromRGB(0,0,0) })
-                    task.delay(.01, function() b.BackgroundTransparency = 1 end)
-                    b.label.TextColor3 = T.Subtitle
+                    data.Visited={} data.TeleportCounter=0 task.wait(0.5)
                 end
             end
-            activeSub = name
         end
-
-        local subScrolls = {}
-        for i, name in ipairs(cfg2.Tabs) do
-            local btn = Instance.new("TextButton", tabBar)
-            btn.Size = UDim2.new(0, 80, 1, 0)
-            btn.BackgroundTransparency = 1
-            btn.BorderSizePixel = 0
-            btn.Text = ""
-            btn.AutoButtonColor = false
-            btn.LayoutOrder = i
-            MakeCorner(btn, 4)
-
-            local lbl = MakeLabel(btn, name, 12, T.Subtitle, true, Enum.TextXAlignment.Center)
-            lbl.Size = UDim2.new(1, 0, 1, 0)
-            btn.label = lbl
-
-            local subScroll = Instance.new("ScrollingFrame", content)
-            subScroll.Size = UDim2.new(1, 0, 0, 0)
-            subScroll.AutomaticSize = Enum.AutomaticSize.Y
-            subScroll.BackgroundTransparency = 1
-            subScroll.ScrollBarThickness = 0
-            subScroll.BorderSizePixel = 0
-            subScroll.Visible = false
-            MakeList(subScroll, Enum.FillDirection.Vertical, 4)
-
-            subFrames[name] = subScroll
-            subScrolls[name] = subScroll
-            subBtns[name] = btn
-
-            btn.MouseButton1Click:Connect(function() SetSub(name) end)
-        end
-
-        if #cfg2.Tabs > 0 then SetSub(cfg2.Tabs[1]) end
-        return subScrolls
-    end
-
-    -- ── AddPlayerList ─────────────────────────────────────────
-    function Options:AddPlayerList(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        MakeTitleDesc(row, cfg2.Title or "Player List", cfg2.Description or "Click to select")
-
-        local arrow = MakeLabel(row, "›", 20, T.Muted, true, Enum.TextXAlignment.Right)
-        arrow.Size = UDim2.new(0, 20, 1, 0)
-        arrow.Position = UDim2.new(1, -30, 0, 0)
-
-        row.MouseButton1Click:Connect(function()
-            local overlay = Instance.new("Frame", window)
-            overlay.Size = UDim2.new(1, 0, 1, 0)
-            overlay.BackgroundTransparency = 0.5
-            overlay.BackgroundColor3 = Color3.fromRGB(0,0,0)
-            overlay.BorderSizePixel = 0
-            overlay.ZIndex = 40
-
-            local popup = Instance.new("Frame", overlay)
-            popup.Size = UDim2.new(0, 260, 0, 320)
-            popup.AnchorPoint = Vector2.new(0.5, 0.5)
-            popup.Position = UDim2.new(0.5, 0, 0.5, 0)
-            popup.BackgroundColor3 = T.Secondary
-            popup.BorderSizePixel = 0
-            popup.ZIndex = 41
-            MakeCorner(popup, 10)
-            MakeStroke(popup, T.Outline, 1)
-
-            local hdr = MakeLabel(popup, "Players", 15, T.Title, true)
-            hdr.Size = UDim2.new(1,-20,0,24)
-            hdr.Position = UDim2.new(0,14,0,10)
-
-            local xBtn = Instance.new("TextButton", popup)
-            xBtn.Size = UDim2.new(0,28,0,28)
-            xBtn.Position = UDim2.new(1,-36,0,6)
-            xBtn.BackgroundTransparency = 1
-            xBtn.Text = "✕"
-            xBtn.TextColor3 = T.Subtitle
-            xBtn.Font = Enum.Font.GothamBold
-            xBtn.TextSize = 14
-            xBtn.ZIndex = 42
-            xBtn.MouseButton1Click:Connect(function() overlay:Destroy() end)
-
-            local scroll = Instance.new("ScrollingFrame", popup)
-            scroll.Size = UDim2.new(1,-10,1,-46)
-            scroll.Position = UDim2.new(0,5,0,42)
-            scroll.BackgroundTransparency = 1
-            scroll.ScrollBarThickness = 3
-            scroll.ScrollBarImageColor3 = T.Outline
-            scroll.BorderSizePixel = 0
-            scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            scroll.CanvasSize = UDim2.new(0,0,0,0)
-            scroll.ZIndex = 42
-            MakeList(scroll, Enum.FillDirection.Vertical, 4)
-
-            local function AddPlayerRow(p)
-                local pRow = Instance.new("TextButton", scroll)
-                pRow.Name = p.Name
-                pRow.Size = UDim2.new(1,0,0,36)
-                pRow.BackgroundColor3 = T.Component
-                pRow.BorderSizePixel = 0
-                pRow.Text = ""
-                pRow.AutoButtonColor = false
-                pRow.ZIndex = 43
-                MakeCorner(pRow, 6)
-                AddHover(pRow, T.Component, T.Hover)
-
-                local ico = Instance.new("ImageLabel", pRow)
-                ico.Size = UDim2.new(0,26,0,26)
-                ico.AnchorPoint = Vector2.new(0,0.5)
-                ico.Position = UDim2.new(0,6,0.5,0)
-                ico.BackgroundColor3 = T.Outline
-                ico.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..p.UserId.."&width=48&height=48&format=png"
-                ico.ZIndex = 44
-                MakeCorner(ico, 99)
-
-                local nl = MakeLabel(pRow, p.Name, 13, T.Title, true)
-                nl.Size = UDim2.new(1,-44,1,0)
-                nl.Position = UDim2.new(0,38,0,0)
-                nl.ZIndex = 44
-
-                pRow.MouseButton1Click:Connect(function()
-                    cfg2.Callback(p)
-                    overlay:Destroy()
-                end)
-            end
-
-            for _, p in ipairs(Players:GetPlayers()) do AddPlayerRow(p) end
-            Players.PlayerAdded:Connect(function(p) AddPlayerRow(p) end)
-            Players.PlayerRemoving:Connect(function(p)
-                local r = scroll:FindFirstChild(p.Name)
-                if r then r:Destroy() end
-            end)
-        end)
-    end
-
-    -- ── AddBindManager ────────────────────────────────────────
-    function Options:AddBindManager(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        MakeTitleDesc(row, cfg2.Title or "Bind Manager", cfg2.Description or "View all keybinds")
-
-        local arrow = MakeLabel(row, "›", 20, T.Muted, true, Enum.TextXAlignment.Right)
-        arrow.Size = UDim2.new(0, 20, 1, 0)
-        arrow.Position = UDim2.new(1, -30, 0, 0)
-
-        row.MouseButton1Click:Connect(function()
-            local overlay = Instance.new("Frame", window)
-            overlay.Size = UDim2.new(1,0,1,0)
-            overlay.BackgroundTransparency = 0.5
-            overlay.BackgroundColor3 = Color3.fromRGB(0,0,0)
-            overlay.BorderSizePixel = 0
-            overlay.ZIndex = 40
-
-            local popup = Instance.new("Frame", overlay)
-            popup.Size = UDim2.new(0,300,0,360)
-            popup.AnchorPoint = Vector2.new(0.5,0.5)
-            popup.Position = UDim2.new(0.5,0,0.5,0)
-            popup.BackgroundColor3 = T.Secondary
-            popup.BorderSizePixel = 0
-            popup.ZIndex = 41
-            MakeCorner(popup, 10)
-            MakeStroke(popup, T.Outline, 1)
-
-            local hdr = MakeLabel(popup, "Bind Manager", 15, T.Title, true)
-            hdr.Size = UDim2.new(1,-20,0,24)
-            hdr.Position = UDim2.new(0,14,0,10)
-
-            local xBtn = Instance.new("TextButton", popup)
-            xBtn.Size = UDim2.new(0,28,0,28)
-            xBtn.Position = UDim2.new(1,-36,0,6)
-            xBtn.BackgroundTransparency = 1
-            xBtn.Text = "✕"
-            xBtn.TextColor3 = T.Subtitle
-            xBtn.Font = Enum.Font.GothamBold
-            xBtn.TextSize = 14
-            xBtn.ZIndex = 42
-            xBtn.MouseButton1Click:Connect(function() overlay:Destroy() end)
-
-            local scroll = Instance.new("ScrollingFrame", popup)
-            scroll.Size = UDim2.new(1,-10,1,-46)
-            scroll.Position = UDim2.new(0,5,0,42)
-            scroll.BackgroundTransparency = 1
-            scroll.ScrollBarThickness = 3
-            scroll.ScrollBarImageColor3 = T.Outline
-            scroll.BorderSizePixel = 0
-            scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            scroll.CanvasSize = UDim2.new(0,0,0,0)
-            scroll.ZIndex = 42
-            MakeList(scroll, Enum.FillDirection.Vertical, 4)
-
-            local count = 0
-            for k, v in next, SavedBinds do
-                count = count + 1
-                local bRow = Instance.new("Frame", scroll)
-                bRow.Size = UDim2.new(1,0,0,36)
-                bRow.BackgroundColor3 = T.Component
-                bRow.BorderSizePixel = 0
-                bRow.ZIndex = 43
-                MakeCorner(bRow, 6)
-
-                local nl = MakeLabel(bRow, k, 13, T.Title, true)
-                nl.Size = UDim2.new(0.6,0,1,0)
-                nl.Position = UDim2.new(0,12,0,0)
-                nl.ZIndex = 44
-
-                local bl = MakeLabel(bRow, tostring(v):gsub("Enum.KeyCode.",""):gsub("Enum.UserInputType.MouseButton","MB"),
-                    13, T.Accent, true, Enum.TextXAlignment.Right)
-                bl.Size = UDim2.new(0.4,-12,1,0)
-                bl.Position = UDim2.new(0.6,0,0,0)
-                bl.ZIndex = 44
-            end
-
-            if count == 0 then
-                local el = MakeLabel(scroll, "No keybinds set.", 13, T.Muted, false, Enum.TextXAlignment.Center)
-                el.Size = UDim2.new(1,0,0,40)
-            end
-        end)
-    end
-
-    -- ── AddThemePicker ────────────────────────────────────────
-    function Options:AddThemePicker(cfg2)
-        local row = MakeRow(cfg2.Tab, 52)
-        MakeTitleDesc(row, cfg2.Title or "Theme", "Choose a color theme")
-
-        local dot = Instance.new("Frame", row)
-        dot.Size = UDim2.new(0, 16, 0, 16)
-        dot.AnchorPoint = Vector2.new(1, 0.5)
-        dot.Position = UDim2.new(1, -14, 0.5, 0)
-        dot.BackgroundColor3 = T.Accent
-        dot.BorderSizePixel = 0
-        MakeCorner(dot, 99)
-
-        row.MouseButton1Click:Connect(function()
-            MakeThemePicker(window, function(preset)
-                T = preset
-                dot.BackgroundColor3 = T.Accent
-                -- recolor window
-                window.BackgroundColor3 = T.Primary
-                titlebar.BackgroundColor3 = T.Secondary
-                tbfix.BackgroundColor3 = T.Secondary
-                sidebar.BackgroundColor3 = T.Sidebar
-                contentArea.BackgroundColor3 = T.Primary
-                cafix.BackgroundColor3 = T.Primary
-                divider.BackgroundColor3 = T.Outline
-                keybindHint.BackgroundColor3 = T.Secondary
-                khfix.BackgroundColor3 = T.Secondary
-                khLabel.TextColor3 = T.Muted
-                titleLabel.TextColor3 = T.Title
-                searchBox.BackgroundColor3 = T.Component
-                searchIcon.TextColor3 = T.Muted
-                searchInput.TextColor3 = T.Title
-                searchInput.PlaceholderColor3 = T.Muted
-            end)
-        end)
-    end
-
-    -- ── Config Save/Load ──────────────────────────────────────
-    function Options:SaveConfig(name)
-        if not writefile then
-            ShowNotif("Error", "writefile not available", 3, "error"); return
-        end
-        local data = {}
-        for k, v in next, SavedConfig do
-            if typeof(v) == "Color3" then
-                data[k] = { t = "Color3", r = v.R, g = v.G, b = v.B }
-            elseif typeof(v) == "boolean" or typeof(v) == "number" or typeof(v) == "string" then
-                data[k] = { t = typeof(v), v = v }
-            end
-        end
-        local ok, err = pcall(writefile, (name or "PulseConfig") .. ".json", HttpService:JSONEncode(data))
-        if ok then
-            ShowNotif("Config Saved", (name or "PulseConfig") .. ".json", 2, "success")
-        else
-            ShowNotif("Save Error", tostring(err), 3, "error")
-        end
-    end
-
-    function Options:LoadConfig(name, callbacks)
-        if not readfile then
-            ShowNotif("Error", "readfile not available", 3, "error"); return
-        end
-        local ok, raw = pcall(readfile, (name or "PulseConfig") .. ".json")
-        if not ok then
-            ShowNotif("Load Error", "File not found", 3, "error"); return
-        end
-        local ok2, data = pcall(HttpService.JSONDecode, HttpService, raw)
-        if not ok2 then
-            ShowNotif("Parse Error", "Invalid config file", 3, "error"); return
-        end
-        for k, entry in next, data do
-            local v
-            if entry.t == "Color3" then
-                v = Color3.fromRGB(entry.r*255, entry.g*255, entry.b*255)
-            else
-                v = entry.v
-            end
-            SavedConfig[k] = v
-            if callbacks and callbacks[k] then callbacks[k](v) end
-        end
-        ShowNotif("Config Loaded", (name or "PulseConfig") .. ".json", 2, "success")
-    end
-
-    -- ── Notify ────────────────────────────────────────────────
-    function Options:Notify(cfg2)
-        ShowNotif(cfg2.Title, cfg2.Description, cfg2.Duration, cfg2.Type)
-    end
-
-    -- Final
-    window.GroupTransparency = 1
-    Tween(window, .3, { GroupTransparency = winTransp })
-
-    return Options
+    end)
 end
 
-return Library
+-- ==================== CAR ====================
+
+local WheelConns = {}
+
+local function ClearConns()
+    for _, c in pairs(WheelConns) do c:Disconnect() end
+    WheelConns = {}
+end
+
+local function GetAllCars()
+    local t = {}
+    local kc = workspace:FindFirstChild("KeepCar")
+    if kc then for _, c in pairs(kc:GetChildren()) do table.insert(t, c.Name) end end
+    return t
+end
+
+local function ApplyWheels(size)
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then Notify("ผิดพลาด","ไม่พบ KeepCar","alert-triangle") return 0 end
+    local excl = {}
+    for _, n in pairs(CarConfig.ExcludedCars) do excl[n]=true end
+    local count = 0
+    for _, car in pairs(keepCar:GetChildren()) do
+        if excl[car.Name] then continue end
+        local chassis = car:FindFirstChild("Chassis")
+        if not chassis then continue end
+        for _, sn in ipairs({"SuspensionFL","SuspensionFR","SuspensionRL","SuspensionRR"}) do
+            local susp = chassis:FindFirstChild(sn)
+            if not susp then continue end
+            local wheel = susp:FindFirstChild("Wheel")
+            if not wheel then
+                for _, d in pairs(susp:GetDescendants()) do
+                    if d:IsA("BasePart") then wheel=d break end
+                end
+            end
+            if not wheel then continue end
+            pcall(function() wheel.Size = size end)
+            for _, old in pairs(wheel:GetChildren()) do
+                if old:IsA("Highlight") or old:IsA("SelectionBox") then old:Destroy() end
+            end
+            if CarConfig.HighlightEnabled then
+                local hl = Instance.new("Highlight")
+                hl.Adornee=wheel hl.FillColor=CarConfig.HighlightColor hl.OutlineColor=CarConfig.HighlightColor
+                hl.FillTransparency=0.5 hl.OutlineTransparency=0
+                hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop hl.Enabled=true hl.Parent=wheel
+                local sb = Instance.new("SelectionBox")
+                sb.Adornee=wheel sb.Color3=CarConfig.HighlightColor
+                sb.LineThickness=0.05 sb.Transparency=0 sb.Visible=true sb.Parent=wheel
+            end
+            count += 1
+        end
+    end
+    if count == 0 then Notify("คำเตือน","ไม่พบล้อในรถ","alert-triangle") end
+    return count
+end
+
+local function ResetWheels()
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then return end
+    for _, car in pairs(keepCar:GetChildren()) do
+        local chassis = car:FindFirstChild("Chassis")
+        if not chassis then continue end
+        for _, sn in ipairs({"SuspensionFL","SuspensionFR","SuspensionRL","SuspensionRR"}) do
+            local susp = chassis:FindFirstChild(sn)
+            if not susp then continue end
+            local wheel = susp:FindFirstChild("Wheel")
+            if not wheel then
+                for _, d in pairs(susp:GetDescendants()) do
+                    if d:IsA("BasePart") then wheel=d break end
+                end
+            end
+            if not wheel then continue end
+            pcall(function() wheel.Size = Vector3.new(3,3,3) end)
+            for _, old in pairs(wheel:GetChildren()) do
+                if old:IsA("Highlight") or old:IsA("SelectionBox") then old:Destroy() end
+            end
+        end
+    end
+end
+
+local function HookWheels(size)
+    ClearConns()
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then return end
+    local excl = {}
+    for _, n in pairs(CarConfig.ExcludedCars) do excl[n]=true end
+    for _, car in pairs(keepCar:GetChildren()) do
+        if excl[car.Name] then continue end
+        local chassis = car:FindFirstChild("Chassis")
+        if not chassis then continue end
+        for _, sn in ipairs({"SuspensionFL","SuspensionFR","SuspensionRL","SuspensionRR"}) do
+            local susp = chassis:FindFirstChild(sn)
+            if not susp then continue end
+            local wheel = susp:FindFirstChild("Wheel")
+            if not wheel then
+                for _, d in pairs(susp:GetDescendants()) do
+                    if d:IsA("BasePart") then wheel=d break end
+                end
+            end
+            if not wheel then continue end
+            table.insert(WheelConns, wheel:GetPropertyChangedSignal("Size"):Connect(function()
+                if CarConfig.Enabled and wheel.Size ~= size then
+                    pcall(function() wheel.Size = size end)
+                end
+            end))
+        end
+    end
+end
+
+local function SetWheels(state)
+    CarConfig.Enabled = state
+    if state then
+        local count = ApplyWheels(CarConfig.WheelSize)
+        HookWheels(CarConfig.WheelSize)
+        Notify("ล้อรถ ON", ("ขยายยาง %d ล้อ"):format(count), "car", 4)
+    else
+        ClearConns() ResetWheels()
+        Notify("ล้อรถ OFF", "รีเซ็ตขนาดยางแล้ว", "car", 4)
+    end
+end
+
+-- ==================== TELEPORT ====================
+
+local SavedCF = nil
+
+local function TpTo(cf)
+    local char = game.Players.LocalPlayer.Character
+    if not char then Notify("ผิดพลาด","ไม่พบตัวละคร","alert-triangle") return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then Notify("ผิดพลาด","ไม่พบ HumanoidRootPart","alert-triangle") return end
+    pcall(function() hrp.CFrame = cf end)
+end
+
+-- ==================== KEYBIND (single listener) ====================
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+    if gpe or not GUIActive then return end
+    if input.KeyCode == Keys.Hitbox then
+        SetTargeting(not Config.TargetingEnabled)
+    elseif input.KeyCode == Keys.Wheel then
+        SetWheels(not CarConfig.Enabled)
+    end
+end)
+
+-- ╔══════════════╗
+-- ║  TAB: ต่อสู้  ║
+-- ╚══════════════╝
+
+PVPTab:Section({ Title = "🎯 ระบบเล็ง" })
+
+local playerDD = PVPTab:Dropdown({
+    Title="ยกเว้นผู้เล่น", Desc="ไม่ถูกปรับ Hitbox",
+    Values=GetAllPlayers(), Multi=true, AllowNone=true,
+    Callback=function(v)
+        Config.ExcludedPlayers=v
+        if Config.TargetingEnabled then ApplyTargeting() end
+    end,
+})
+
+PVPTab:Space()
+PVPTab:Button({
+    Title="รีเฟรชรายชื่อ", Icon="refresh-cw",
+    Callback=function() playerDD:Refresh(GetAllPlayers()) Notify("สำเร็จ","อัพเดทแล้ว","check") end,
+})
+PVPTab:Space()
+PVPTab:Input({
+    Title="ขนาด Hitbox (X,Y,Z)", Desc="เช่น 20,20,20",
+    Value="20,20,20", Placeholder="20,20,20",
+    Callback=function(v)
+        local vals={}
+        for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
+        if #vals==3 then
+            Config.Target.Size=Vector3.new(vals[1],vals[2],vals[3])
+            Notify("อัพเดทขนาด",("%.0f,%.0f,%.0f"):format(vals[1],vals[2],vals[3]),"maximize-2")
+            if Config.TargetingEnabled then ApplyTargeting() end
+        else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
+    end,
+})
+PVPTab:Input({
+    Title="รีเฟรชทุก (วิ)", Value="1", Placeholder="1",
+    Callback=function(v)
+        local n=tonumber(v)
+        if n and n>0 then Config.Target.RefreshInterval=n end
+    end,
+})
+PVPTab:Space()
+PVPTab:Keybind({
+    Title="ปุ่ม Toggle Hitbox", Desc="กดเพื่อเปิด/ปิด Hitbox", Value="X",
+    Callback=function(v)
+        local ok,kc=pcall(function() return Enum.KeyCode[v] end)
+        if ok and kc then Keys.Hitbox=kc Notify("อัพเดทปุ่ม Hitbox","ปุ่ม: "..v,"crosshair") end
+    end,
+})
+PVPTab:Space()
+PVPTab:Toggle({
+    Title="เปิดปรับเป้าหมาย", Desc="เปิด=ขยาย | ปิด=รีเซ็ต", Value=false,
+    Callback=function(state) SetTargeting(state) end,
+})
+PVPTab:Space()
+PVPTab:Button({
+    Title="บังคับอัพเดท", Icon="zap",
+    Callback=function()
+        if not Config.TargetingEnabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
+        local m,s=ApplyTargeting()
+        Notify("อัพเดท",("ปรับ %d | ข้าม %d"):format(m,s),"zap",5)
+    end,
+})
+
+PVPTab:Section({ Title = "🎨 การตั้งค่าภาพ" })
+PVPTab:Toggle({
+    Title="เปิดไฮไลท์", Value=true,
+    Callback=function(state)
+        Config.Highlight.Enabled=state
+        if Config.TargetingEnabled then ApplyTargeting() end
+    end,
+})
+PVPTab:Space()
+PVPTab:Slider({
+    Title="ความโปร่งใส", Desc="0=ทึบ / 1=ใส", Step=0.01,
+    Value={Min=0, Max=1, Default=0.7},
+    Callback=function(v)
+        Config.Highlight.Transparency=v
+        if Config.TargetingEnabled then ApplyTargeting() end
+    end,
+})
+PVPTab:Space()
+PVPTab:Colorpicker({
+    Title="สีไฮไลท์", Default=Color3.fromRGB(0,255,255),
+    Callback=function(c)
+        Config.Highlight.Color=c
+        if Config.TargetingEnabled then ApplyTargeting() end
+    end,
+})
+
+PVPTab:Section({ Title = "🛡️ เกราะอัตโนมัติ" })
+PVPTab:Input({
+    Title="ปุ่มเกราะ (1-8)", Value="1", Placeholder="1",
+    Callback=function(v)
+        local n=tonumber(v)
+        if n and n>=1 and n<=8 then Config.AutoArmor.KeyNumber=math.floor(n) end
+    end,
+})
+PVPTab:Space()
+
+local function CheckArmor()
+    local model=workspace:FindFirstChild(game.Players.LocalPlayer.Name)
+    if not model or model:FindFirstChild("BodyArmor") then return end
+    local keyMap={
+        Enum.KeyCode.One,Enum.KeyCode.Two,Enum.KeyCode.Three,Enum.KeyCode.Four,
+        Enum.KeyCode.Five,Enum.KeyCode.Six,Enum.KeyCode.Seven,Enum.KeyCode.Eight,
+    }
+    local kc=keyMap[Config.AutoArmor.KeyNumber]
+    if not kc then return end
+    pcall(function()
+        local VIM=game:GetService("VirtualInputManager")
+        VIM:SendKeyEvent(true,kc,false,game) task.wait(0.1) VIM:SendKeyEvent(false,kc,false,game)
+    end)
+end
+
+PVPTab:Toggle({
+    Title="สวมเกราะอัตโนมัติ", Desc="สวมเมื่อไม่มี BodyArmor", Value=false,
+    Callback=function(state)
+        Config.AutoArmor.Enabled=state
+        if state then
+            task.spawn(function() while Config.AutoArmor.Enabled do CheckArmor() task.wait(1) end end)
+            Notify("เกราะ ON","สวมเมื่อจำเป็น","shield")
+        else Notify("เกราะ OFF","หยุดแล้ว","shield") end
+    end,
+})
+
+-- ╔══════════════╗
+-- ║  TAB: ฟาร์ม  ║
+-- ╚══════════════╝
+
+FarmTab:Section({ Title = "🚛 รถบรรทุก" })
+
+local truckDD = FarmTab:Dropdown({
+    Title="เลือกรถบรรทุก", Values={}, AllowNone=false,
+    Callback=function(v) Config.Truck.Selected=v Notify("เลือกรถ",tostring(v),"truck") end,
+})
+FarmTab:Space()
+FarmTab:Button({
+    Title="สแกนรถของฉัน", Icon="search",
+    Callback=function()
+        local trucks=ScanPlayerTrucks()
+        if #trucks>0 then
+            truckDD:Refresh(trucks)
+            if not Config.Truck.Selected then Config.Truck.Selected=trucks[1] truckDD:Set(trucks[1]) end
+            Notify("พบรถ",("พบ %d คัน"):format(#trucks),"truck")
+        else
+            local all={}
+            for _,v in pairs(game.Players.LocalPlayer:GetChildren()) do
+                if v:IsA("Model") or v:IsA("Folder") then table.insert(all,v.Name) end
+            end
+            if #all>0 then truckDD:Refresh(all) Notify("แสดงทั้งหมด","เลือกรถจากรายการ","alert-triangle")
+            else Notify("ไม่พบรถ","ไม่พบรถ","alert-triangle") end
+        end
+    end,
+})
+
+FarmTab:Section({ Title = "⚙️ ตั้งค่าฟาร์ม (ทุกฟาร์ม)" })
+FarmTab:Dropdown({
+    Title="โหมดฟาร์ม",
+    Values={"โหมด 1 - วาปซ้ำได้","โหมด 2 - ไม่ซ้ำเรื่อยๆ"},
+    Value="โหมด 1 - วาปซ้ำได้", AllowNone=false,
+    Callback=function(v) Config.Farm.Settings.FarmMode=(v=="โหมด 1 - วาปซ้ำได้") and 1 or 2 end,
+})
+FarmTab:Space()
+FarmTab:Input({ Title="ดีเลวาป (วิ)", Value="5", Placeholder="5",
+    Callback=function(v) local n=tonumber(v) if n and n>0 then Config.Farm.Settings.TeleportDelay=n end end })
+FarmTab:Input({ Title="วาปกี่ครั้งจึงเก็บ", Value="1", Placeholder="1",
+    Callback=function(v) local n=tonumber(v) if n and n>=1 then Config.Farm.Settings.TeleportCount=math.floor(n) end end })
+FarmTab:Input({ Title="จำนวนที่เก็บต่อครั้ง", Value="5", Placeholder="5",
+    Callback=function(v) local n=tonumber(v) if n and n>=1 then Config.Farm.Settings.CollectAmount=math.floor(n) end end })
+
+local farms = {
+    { t="🍇 ฟาร์มองุ่น", d=Config.Farm.Grape,     f="Grape",     i="Grape"     },
+    { t="🪨 ฟาร์มหิน",   d=Config.Farm.Rock,      f="Miner",     i="Rock"      },
+    { t="⚙️ ฟาร์มเหล็ก", d=Config.Farm.ScrapIron, f="ScrapIron", i="ScrapIron" },
+    { t="🗑️ ฟาร์มขยะ",   d=Config.Farm.Garbage,   f="Garbage",   i="Garbage"   },
+}
+for _, fm in ipairs(farms) do
+    FarmTab:Section({ Title = fm.t })
+    FarmTab:Toggle({
+        Title=fm.t.."อัตโนมัติ", Desc="วาปเก็บแล้วส่งรถ", Value=false,
+        Callback=function(state)
+            fm.d.Enabled=state
+            if state then RunFarm(fm.d,fm.f,fm.i) Notify(fm.t.." ON","เปิดแล้ว","sprout")
+            else Notify(fm.t.." OFF","หยุดแล้ว","sprout") end
+        end,
+    })
+end
+
+-- ╔══════════════════╗
+-- ║  TAB: เทเลพอต   ║
+-- ╚══════════════════╝
+
+TeleportTab:Section({ Title = "📍 เซฟตำแหน่ง" })
+TeleportTab:Button({
+    Title="เซฟตำแหน่งปัจจุบัน", Icon="bookmark",
+    Callback=function()
+        local hrp=game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then Notify("ผิดพลาด","ไม่พบตัวละคร","alert-triangle") return end
+        SavedCF=hrp.CFrame
+        local p=SavedCF.Position
+        Notify("เซฟสำเร็จ",("X:%.1f Y:%.1f Z:%.1f"):format(p.X,p.Y,p.Z),"bookmark",4)
+    end,
+})
+TeleportTab:Space()
+TeleportTab:Button({
+    Title="วาปกลับตำแหน่งที่เซฟ", Icon="corner-down-left",
+    Callback=function()
+        if not SavedCF then Notify("ผิดพลาด","ยังไม่ได้เซฟ!","alert-triangle") return end
+        TpTo(SavedCF)
+        local p=SavedCF.Position
+        Notify("วาปกลับแล้ว",("X:%.1f Y:%.1f Z:%.1f"):format(p.X,p.Y,p.Z),"corner-down-left",4)
+    end,
+})
+
+TeleportTab:Section({ Title = "🗺️ จุดหมาย" })
+local Dests = {
+    { t="การาช",    i="car",      cf=CFrame.new(303.565521,66.1486893,-906.82373,0.767768562,6.71885871e-08,-0.640727282,-5.10625604e-08,1,4.36759322e-08,0.640727282,-8.15832679e-10,0.767768562) },
+    { t="เลเบลฟ้า", i="map-pin",  cf=CFrame.new(-900.60968,88.9132462,1224.23682,-0.907460213,-1.95295904e-08,-0.420138031,-9.32648447e-09,1,-2.63393822e-08,0.420138031,-1.99835295e-08,-0.907460213) },
+    { t="สภา",      i="landmark", cf=CFrame.new(5547.8877,683.3078,1496.87927,-0.267395705,1.94510399e-08,0.963586807,5.54390418e-08,1,-4.80172435e-09,-0.963586807,5.21363681e-08,-0.267395705) },
+    { t="เลเบลแดง", i="map-pin",  cf=CFrame.new(6889.5166,285.729034,-2287.85767,-0.0161244199,1.21794734e-08,0.999870002,-4.29730243e-08,1,-1.28740627e-08,-0.999870002,-4.31750244e-08,-0.0161244199) },
+    { t="ปั้มบนสุด", i="fuel",     cf=CFrame.new(7985.23975,264.948853,-781.145386,-0.745238066,-4.59924507e-08,-0.666798472,-1.86272047e-08,1,-4.81566005e-08,0.666798472,-2.3467539e-08,-0.745238066) },
+}
+for k, d in ipairs(Dests) do
+    TeleportTab:Button({
+        Title="วาปไป"..d.t, Icon=d.i,
+        Callback=function() TpTo(d.cf) Notify("เทเลพอต","วาปไป"..d.t.."แล้ว!","map-pin") end,
+    })
+    if k < #Dests then TeleportTab:Space() end
+end
+
+-- ╔══════════════════╗
+-- ║  TAB: กิจกรรม   ║
+-- ╚══════════════════╝
+
+ActivityTab:Section({ Title = "🎉 วาปไปกิจกรรม" })
+ActivityTab:Button({
+    Title="วาปไปชนะปากัว", Icon="swords",
+    Callback=function()
+        TpTo(CFrame.new(-694.090698,188.338425,571.563782,0.0845197961,-4.88692606e-08,-0.996421814,3.67553454e-08,1,-4.59270417e-08,0.996421814,-3.27420828e-08,0.0845197961))
+        Notify("เทเลพอต","วาปไปชนะปากัวแล้ว!","swords")
+    end,
+})
+ActivityTab:Space()
+ActivityTab:Button({
+    Title="วาปไปลักกี้บอม", Icon="bomb",
+    Callback=function()
+        TpTo(CFrame.new(-391.9711,66.0340271,578.966553,-0.0431948975,-4.21879598e-09,-0.999066651,8.60502336e-09,1,-4.59477745e-09,0.999066651,-8.79546302e-09,-0.0431948975))
+        Notify("เทเลพอต","วาปไปลักกี้บอมแล้ว!","bomb")
+    end,
+})
+
+-- ╔══════════════╗
+-- ║  TAB: รถยนต์  ║
+-- ╚══════════════╝
+
+CarTab:Section({ Title = "🚗 ยกเว้นรถ" })
+local carDD = CarTab:Dropdown({
+    Title="ยกเว้นรถ", Desc="ไม่ขยายยางรถที่เลือก",
+    Values=GetAllCars(), Multi=true, AllowNone=true,
+    Callback=function(v)
+        CarConfig.ExcludedCars=v
+        if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) end
+    end,
+})
+CarTab:Space()
+CarTab:Button({
+    Title="รีเฟรชรายชื่อรถ", Icon="refresh-cw",
+    Callback=function() carDD:Refresh(GetAllCars()) Notify("สำเร็จ","อัพเดทรายชื่อรถแล้ว","check") end,
+})
+
+CarTab:Section({ Title = "📐 ขนาดยาง" })
+CarTab:Input({
+    Title="ขนาดยาง (X,Y,Z)", Desc="เช่น 10,10,10", Value="10,10,10", Placeholder="10,10,10",
+    Callback=function(v)
+        local vals={}
+        for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
+        if #vals==3 then
+            CarConfig.WheelSize=Vector3.new(vals[1],vals[2],vals[3])
+            Notify("อัพเดท",("%.0f,%.0f,%.0f"):format(vals[1],vals[2],vals[3]),"maximize-2")
+            if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) HookWheels(CarConfig.WheelSize) end
+        else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
+    end,
+})
+
+CarTab:Section({ Title = "👁️ การมองเห็น" })
+CarTab:Toggle({
+    Title="เปิดไฮไลท์ล้อ", Value=true,
+    Callback=function(state)
+        CarConfig.HighlightEnabled=state
+        if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) end
+    end,
+})
+CarTab:Space()
+CarTab:Colorpicker({
+    Title="สีไฮไลท์ล้อ", Default=Color3.fromRGB(255,165,0),
+    Callback=function(c)
+        CarConfig.HighlightColor=c
+        if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) end
+    end,
+})
+
+CarTab:Section({ Title = "🔧 ควบคุม" })
+CarTab:Keybind({
+    Title="ปุ่ม Toggle ล้อรถ", Desc="กดเพื่อเปิด/ปิดขยายล้อ", Value="Z",
+    Callback=function(v)
+        local ok,kc=pcall(function() return Enum.KeyCode[v] end)
+        if ok and kc then Keys.Wheel=kc Notify("อัพเดทปุ่มล้อ","ปุ่ม: "..v,"car") end
+    end,
+})
+CarTab:Space()
+CarTab:Toggle({
+    Title="เปิดขยายยางรถ", Desc="เปิด=ขยาย | ปิด=รีเซ็ต", Value=false,
+    Callback=function(state) SetWheels(state) end,
+})
+CarTab:Space()
+CarTab:Button({
+    Title="บังคับอัพเดทยาง", Icon="zap",
+    Callback=function()
+        if not CarConfig.Enabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
+        local count=ApplyWheels(CarConfig.WheelSize)
+        HookWheels(CarConfig.WheelSize)
+        Notify("อัพเดท",("ขยายยาง %d ล้อ"):format(count),"zap",5)
+    end,
+})
+
+-- ╔══════════════════╗
+-- ║  TAB: ตั้งค่า    ║
+-- ╚══════════════════╝
+
+SettingsTab:Section({ Title = "🖥️ การตั้งค่า UI" })
+SettingsTab:Keybind({
+    Title="ปุ่มเปิด/ปิด UI", Desc="กดปุ่มที่ต้องการ", Value="RightControl",
+    Callback=function(v)
+        local ok,kc=pcall(function() return Enum.KeyCode[v] end)
+        if ok and kc then Window:SetToggleKey(kc) Notify("อัพเดทปุ่ม","ปุ่ม: "..v,"keyboard") end
+    end,
+})
+
+SettingsTab:Section({ Title = "⚠️ อื่นๆ" })
+SettingsTab:Button({
+    Title="ปิด GUI", Icon="x-circle",
+    Callback=function()
+        local dialog=Window:Dialog({
+            Icon="alert-triangle", Title="ยืนยันการปิด",
+            Content="ต้องการปิด God Weapon จริงหรือไม่?",
+            Buttons={
+                { Title="ปิดเลย", Icon="x", Variant="Primary",
+                  Callback=function() GUIActive=false Window:Destroy() end },
+                { Title="ยกเลิก", Icon="arrow-left", Variant="Tertiary", Callback=function() end },
+            },
+        })
+        dialog:Show()
+    end,
+})
+
+Notify("God Weapon v2.0 โหลดแล้ว","กด RightControl เพื่อเปิด/ปิด UI","sword",5)
+print("[GodWeapon v2.0] โหลดสำเร็จ")
