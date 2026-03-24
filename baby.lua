@@ -1,6 +1,7 @@
 --[[
     God Weapon v2.0 - WindUI
     Author: TheTorch
+    Fixed by: Claude (bug fix - missing Notify strings)
 ]]
 
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
@@ -411,7 +412,7 @@ local playerDD = PVPTab:Dropdown({
 PVPTab:Space()
 PVPTab:Button({
     Title="รีเฟรชรายชื่อ", Icon="refresh-cw",
-    Callback=function() playerDD:Refresh(GetAllPlayers())  end,
+    Callback=function() playerDD:Refresh(GetAllPlayers()) end,
 })
 PVPTab:Space()
 PVPTab:Input({
@@ -422,7 +423,6 @@ PVPTab:Input({
         for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
         if #vals==3 then
             Config.Target.Size=Vector3.new(vals[1],vals[2],vals[3])
- :format(vals[1],vals[2],vals[3]),"maximize-2")
             if Config.TargetingEnabled then ApplyTargeting() end
         else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
     end,
@@ -453,7 +453,7 @@ PVPTab:Button({
     Callback=function()
         if not Config.TargetingEnabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
         local m,s=ApplyTargeting()
- :format(m,s),"zap",5)
+        Notify("อัพเดทแล้ว", ("ปรับ %d | ข้าม %d"):format(m,s), "zap", 5)
     end,
 })
 
@@ -514,7 +514,7 @@ PVPTab:Toggle({
         Config.AutoArmor.Enabled=state
         if state then
             task.spawn(function() while Config.AutoArmor.Enabled do CheckArmor() task.wait(1) end end)
-         else end
+        end
     end,
 })
 
@@ -536,7 +536,7 @@ FarmTab:Button({
         if #trucks>0 then
             truckDD:Refresh(trucks)
             if not Config.Truck.Selected then Config.Truck.Selected=trucks[1] truckDD:Set(trucks[1]) end
- :format(#trucks),"truck")
+            Notify("พบรถ", ("พบ %d คัน"):format(#trucks), "truck")
         else
             local all={}
             for _,v in pairs(game.Players.LocalPlayer:GetChildren()) do
@@ -570,7 +570,6 @@ local farms = {
     { t="🗑️ ฟาร์มขยะ",   d=Config.Farm.Garbage,   f="Garbage",   i="Garbage"   },
 }
 
--- ฟังก์ชันปิดฟาร์มทุกตัว
 local function StopAllFarms(reason)
     local stopped = false
     for _, fm in ipairs(farms) do
@@ -590,8 +589,7 @@ for _, fm in ipairs(farms) do
         Title=fm.t.."อัตโนมัติ", Desc="วาปเก็บแล้วส่งรถ", Value=false,
         Callback=function(state)
             fm.d.Enabled=state
-            if state then RunFarm(fm.d,fm.f,fm.i)
-            else end
+            if state then RunFarm(fm.d,fm.f,fm.i) end
         end,
     })
 end
@@ -606,7 +604,7 @@ FarmTab:Toggle({
     Callback = function(state)
         Config.Proximity.Enabled = state
         if state then
- :format(Config.Proximity.Distance), "eye")
+            Notify("เปิดตรวจจับ", ("รัศมี %d studs"):format(Config.Proximity.Distance), "eye")
             task.spawn(function()
                 while Config.Proximity.Enabled do
                     local me = game.Players.LocalPlayer
@@ -629,8 +627,7 @@ FarmTab:Toggle({
                     task.wait(1)
                 end
             end)
-        else
-         end
+        end
     end,
 })
 
@@ -643,7 +640,6 @@ FarmTab:Slider({
     Value = { Min = 10, Max = 200, Default = 50 },
     Callback = function(v)
         Config.Proximity.Distance = v
- :format(v), "ruler")
     end,
 })
 
@@ -698,14 +694,14 @@ ActivityTab:Button({
     Title="วาปไปชนะปากัว", Icon="swords",
     Callback=function()
         TpTo(CFrame.new(-694.090698,188.338425,571.563782,0.0845197961,-4.88692606e-08,-0.996421814,3.67553454e-08,1,-4.59270417e-08,0.996421814,-3.27420828e-08,0.0845197961))
-     end,
+    end,
 })
 ActivityTab:Space()
 ActivityTab:Button({
     Title="วาปไปลักกี้บอม", Icon="bomb",
     Callback=function()
         TpTo(CFrame.new(-391.9711,66.0340271,578.966553,-0.0431948975,-4.21879598e-09,-0.999066651,8.60502336e-09,1,-4.59477745e-09,0.999066651,-8.79546302e-09,-0.0431948975))
-     end,
+    end,
 })
 
 -- ╔══════════════╗
@@ -735,7 +731,6 @@ CarTab:Input({
         for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
         if #vals==3 then
             CarConfig.WheelSize=Vector3.new(vals[1],vals[2],vals[3])
- :format(vals[1],vals[2],vals[3]),"maximize-2")
             if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) HookWheels(CarConfig.WheelSize) end
         else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
     end,
@@ -778,7 +773,7 @@ CarTab:Button({
         if not CarConfig.Enabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
         local count=ApplyWheels(CarConfig.WheelSize)
         HookWheels(CarConfig.WheelSize)
- :format(count),"zap",5)
+        Notify("อัพเดทยางแล้ว", ("ขยาย %d ล้อ"):format(count), "zap", 5)
     end,
 })
 
@@ -812,4 +807,4 @@ SettingsTab:Button({
     end,
 })
 
- print("[GodWeapon v2.0] โหลดสำเร็จ")
+print("[GodWeapon v2.0] โหลดสำเร็จ")
