@@ -41,6 +41,7 @@ local Config = {
         ScrapIron = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
         Garbage   = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
     },
+    Proximity = { Enabled=false, Distance=50 },
 }
 
 local CarConfig = {
@@ -410,7 +411,7 @@ local playerDD = PVPTab:Dropdown({
 PVPTab:Space()
 PVPTab:Button({
     Title="รีเฟรชรายชื่อ", Icon="refresh-cw",
-    Callback=function() playerDD:Refresh(GetAllPlayers()) Notify("สำเร็จ","อัพเดทแล้ว","check") end,
+    Callback=function() playerDD:Refresh(GetAllPlayers())  end,
 })
 PVPTab:Space()
 PVPTab:Input({
@@ -421,7 +422,7 @@ PVPTab:Input({
         for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
         if #vals==3 then
             Config.Target.Size=Vector3.new(vals[1],vals[2],vals[3])
-            Notify("อัพเดทขนาด",("%.0f,%.0f,%.0f"):format(vals[1],vals[2],vals[3]),"maximize-2")
+ :format(vals[1],vals[2],vals[3]),"maximize-2")
             if Config.TargetingEnabled then ApplyTargeting() end
         else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
     end,
@@ -438,7 +439,7 @@ PVPTab:Keybind({
     Title="ปุ่ม Toggle Hitbox", Desc="กดเพื่อเปิด/ปิด Hitbox", Value="X",
     Callback=function(v)
         local ok,kc=pcall(function() return Enum.KeyCode[v] end)
-        if ok and kc then Keys.Hitbox=kc Notify("อัพเดทปุ่ม Hitbox","ปุ่ม: "..v,"crosshair") end
+        if ok and kc then Keys.Hitbox=kc end
     end,
 })
 PVPTab:Space()
@@ -452,7 +453,7 @@ PVPTab:Button({
     Callback=function()
         if not Config.TargetingEnabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
         local m,s=ApplyTargeting()
-        Notify("อัพเดท",("ปรับ %d | ข้าม %d"):format(m,s),"zap",5)
+ :format(m,s),"zap",5)
     end,
 })
 
@@ -513,8 +514,7 @@ PVPTab:Toggle({
         Config.AutoArmor.Enabled=state
         if state then
             task.spawn(function() while Config.AutoArmor.Enabled do CheckArmor() task.wait(1) end end)
-            Notify("เกราะ ON","สวมเมื่อจำเป็น","shield")
-        else Notify("เกราะ OFF","หยุดแล้ว","shield") end
+         else end
     end,
 })
 
@@ -526,7 +526,7 @@ FarmTab:Section({ Title = "🚛 รถบรรทุก" })
 
 local truckDD = FarmTab:Dropdown({
     Title="เลือกรถบรรทุก", Values={}, AllowNone=false,
-    Callback=function(v) Config.Truck.Selected=v Notify("เลือกรถ",tostring(v),"truck") end,
+    Callback=function(v) Config.Truck.Selected=v end,
 })
 FarmTab:Space()
 FarmTab:Button({
@@ -536,13 +536,13 @@ FarmTab:Button({
         if #trucks>0 then
             truckDD:Refresh(trucks)
             if not Config.Truck.Selected then Config.Truck.Selected=trucks[1] truckDD:Set(trucks[1]) end
-            Notify("พบรถ",("พบ %d คัน"):format(#trucks),"truck")
+ :format(#trucks),"truck")
         else
             local all={}
             for _,v in pairs(game.Players.LocalPlayer:GetChildren()) do
                 if v:IsA("Model") or v:IsA("Folder") then table.insert(all,v.Name) end
             end
-            if #all>0 then truckDD:Refresh(all) Notify("แสดงทั้งหมด","เลือกรถจากรายการ","alert-triangle")
+            if #all>0 then truckDD:Refresh(all)
             else Notify("ไม่พบรถ","ไม่พบรถ","alert-triangle") end
         end
     end,
@@ -569,17 +569,83 @@ local farms = {
     { t="⚙️ ฟาร์มเหล็ก", d=Config.Farm.ScrapIron, f="ScrapIron", i="ScrapIron" },
     { t="🗑️ ฟาร์มขยะ",   d=Config.Farm.Garbage,   f="Garbage",   i="Garbage"   },
 }
+
+-- ฟังก์ชันปิดฟาร์มทุกตัว
+local function StopAllFarms(reason)
+    local stopped = false
+    for _, fm in ipairs(farms) do
+        if fm.d.Enabled then
+            fm.d.Enabled = false
+            stopped = true
+        end
+    end
+    if stopped then
+        Notify("⚠️ หยุดฟาร์ม", reason or "มีผู้เล่นเข้าใกล้!", "alert-triangle", 5)
+    end
+end
+
 for _, fm in ipairs(farms) do
     FarmTab:Section({ Title = fm.t })
     FarmTab:Toggle({
         Title=fm.t.."อัตโนมัติ", Desc="วาปเก็บแล้วส่งรถ", Value=false,
         Callback=function(state)
             fm.d.Enabled=state
-            if state then RunFarm(fm.d,fm.f,fm.i) Notify(fm.t.." ON","เปิดแล้ว","sprout")
-            else Notify(fm.t.." OFF","หยุดแล้ว","sprout") end
+            if state then RunFarm(fm.d,fm.f,fm.i)
+            else end
         end,
     })
 end
+
+-- ── ระบบตรวจจับผู้เล่นใกล้เคียง ──
+FarmTab:Section({ Title = "🔍 ตรวจจับผู้เล่น" })
+
+FarmTab:Toggle({
+    Title = "หยุดฟาร์มเมื่อมีคนใกล้",
+    Desc  = "ปิดฟาร์มทุกตัวอัตโนมัติเมื่อมีผู้เล่นเข้าใกล้",
+    Value = false,
+    Callback = function(state)
+        Config.Proximity.Enabled = state
+        if state then
+ :format(Config.Proximity.Distance), "eye")
+            task.spawn(function()
+                while Config.Proximity.Enabled do
+                    local me = game.Players.LocalPlayer
+                    local myChar = me.Character
+                    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                    if myHRP then
+                        for _, player in pairs(game.Players:GetPlayers()) do
+                            if player == me then continue end
+                            local theirChar = player.Character
+                            local theirHRP = theirChar and theirChar:FindFirstChild("HumanoidRootPart")
+                            if theirHRP then
+                                local dist = (myHRP.Position - theirHRP.Position).Magnitude
+                                if dist <= Config.Proximity.Distance then
+                                    StopAllFarms(player.Name.." เข้าใกล้! ("..math.floor(dist).." studs)")
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    task.wait(1)
+                end
+            end)
+        else
+         end
+    end,
+})
+
+FarmTab:Space()
+
+FarmTab:Slider({
+    Title = "รัศมีตรวจจับ (studs)",
+    Desc  = "ระยะที่ถือว่า 'ใกล้เคียง'",
+    Step  = 5,
+    Value = { Min = 10, Max = 200, Default = 50 },
+    Callback = function(v)
+        Config.Proximity.Distance = v
+ :format(v), "ruler")
+    end,
+})
 
 -- ╔══════════════════╗
 -- ║  TAB: เทเลพอต   ║
@@ -618,7 +684,7 @@ local Dests = {
 for k, d in ipairs(Dests) do
     TeleportTab:Button({
         Title="วาปไป"..d.t, Icon=d.i,
-        Callback=function() TpTo(d.cf) Notify("เทเลพอต","วาปไป"..d.t.."แล้ว!","map-pin") end,
+        Callback=function() TpTo(d.cf) end,
     })
     if k < #Dests then TeleportTab:Space() end
 end
@@ -632,16 +698,14 @@ ActivityTab:Button({
     Title="วาปไปชนะปากัว", Icon="swords",
     Callback=function()
         TpTo(CFrame.new(-694.090698,188.338425,571.563782,0.0845197961,-4.88692606e-08,-0.996421814,3.67553454e-08,1,-4.59270417e-08,0.996421814,-3.27420828e-08,0.0845197961))
-        Notify("เทเลพอต","วาปไปชนะปากัวแล้ว!","swords")
-    end,
+     end,
 })
 ActivityTab:Space()
 ActivityTab:Button({
     Title="วาปไปลักกี้บอม", Icon="bomb",
     Callback=function()
         TpTo(CFrame.new(-391.9711,66.0340271,578.966553,-0.0431948975,-4.21879598e-09,-0.999066651,8.60502336e-09,1,-4.59477745e-09,0.999066651,-8.79546302e-09,-0.0431948975))
-        Notify("เทเลพอต","วาปไปลักกี้บอมแล้ว!","bomb")
-    end,
+     end,
 })
 
 -- ╔══════════════╗
@@ -660,7 +724,7 @@ local carDD = CarTab:Dropdown({
 CarTab:Space()
 CarTab:Button({
     Title="รีเฟรชรายชื่อรถ", Icon="refresh-cw",
-    Callback=function() carDD:Refresh(GetAllCars()) Notify("สำเร็จ","อัพเดทรายชื่อรถแล้ว","check") end,
+    Callback=function() carDD:Refresh(GetAllCars()) end,
 })
 
 CarTab:Section({ Title = "📐 ขนาดยาง" })
@@ -671,7 +735,7 @@ CarTab:Input({
         for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
         if #vals==3 then
             CarConfig.WheelSize=Vector3.new(vals[1],vals[2],vals[3])
-            Notify("อัพเดท",("%.0f,%.0f,%.0f"):format(vals[1],vals[2],vals[3]),"maximize-2")
+ :format(vals[1],vals[2],vals[3]),"maximize-2")
             if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) HookWheels(CarConfig.WheelSize) end
         else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
     end,
@@ -699,7 +763,7 @@ CarTab:Keybind({
     Title="ปุ่ม Toggle ล้อรถ", Desc="กดเพื่อเปิด/ปิดขยายล้อ", Value="Z",
     Callback=function(v)
         local ok,kc=pcall(function() return Enum.KeyCode[v] end)
-        if ok and kc then Keys.Wheel=kc Notify("อัพเดทปุ่มล้อ","ปุ่ม: "..v,"car") end
+        if ok and kc then Keys.Wheel=kc end
     end,
 })
 CarTab:Space()
@@ -714,7 +778,7 @@ CarTab:Button({
         if not CarConfig.Enabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
         local count=ApplyWheels(CarConfig.WheelSize)
         HookWheels(CarConfig.WheelSize)
-        Notify("อัพเดท",("ขยายยาง %d ล้อ"):format(count),"zap",5)
+ :format(count),"zap",5)
     end,
 })
 
@@ -727,7 +791,7 @@ SettingsTab:Keybind({
     Title="ปุ่มเปิด/ปิด UI", Desc="กดปุ่มที่ต้องการ", Value="RightControl",
     Callback=function(v)
         local ok,kc=pcall(function() return Enum.KeyCode[v] end)
-        if ok and kc then Window:SetToggleKey(kc) Notify("อัพเดทปุ่ม","ปุ่ม: "..v,"keyboard") end
+        if ok and kc then Window:SetToggleKey(kc) end
     end,
 })
 
@@ -748,5 +812,4 @@ SettingsTab:Button({
     end,
 })
 
-Notify("God Weapon v2.0 โหลดแล้ว","กด RightControl เพื่อเปิด/ปิด UI","sword",5)
-print("[GodWeapon v2.0] โหลดสำเร็จ")
+ print("[GodWeapon v2.0] โหลดสำเร็จ")
