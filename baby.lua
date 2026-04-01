@@ -49,6 +49,8 @@ local CarConfig = {
     ExcludedCars={}, WheelSize=Vector3.new(10,10,10),
     Enabled=false, HighlightEnabled=true,
     HighlightColor=Color3.fromRGB(255,165,0),
+    FillTransparency=0.5,
+    OutlineTransparency=0,
 }
 
 -- ==================== UTILITY ====================
@@ -293,7 +295,7 @@ local function ApplyWheels(size)
             if CarConfig.HighlightEnabled then
                 local hl = Instance.new("Highlight")
                 hl.Adornee=wheel hl.FillColor=CarConfig.HighlightColor hl.OutlineColor=CarConfig.HighlightColor
-                hl.FillTransparency=0.5 hl.OutlineTransparency=0
+                hl.FillTransparency=CarConfig.FillTransparency hl.OutlineTransparency=CarConfig.OutlineTransparency
                 hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop hl.Enabled=true hl.Parent=wheel
                 local sb = Instance.new("SelectionBox")
                 sb.Adornee=wheel sb.Color3=CarConfig.HighlightColor
@@ -388,9 +390,13 @@ end
 game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
     if gpe or not GUIActive then return end
     if input.KeyCode == Keys.Hitbox then
-        SetTargeting(not Config.TargetingEnabled)
+        local newState = not Config.TargetingEnabled
+        SetTargeting(newState)
+        if HitboxToggle then HitboxToggle:Set(newState) end
     elseif input.KeyCode == Keys.Wheel then
-        SetWheels(not CarConfig.Enabled)
+        local newState = not CarConfig.Enabled
+        SetWheels(newState)
+        if WheelToggle then WheelToggle:Set(newState) end
     end
 end)
 
@@ -443,7 +449,7 @@ PVPTab:Keybind({
     end,
 })
 PVPTab:Space()
-PVPTab:Toggle({
+local HitboxToggle = PVPTab:Toggle({
     Title="เปิดปรับเป้าหมาย", Desc="เปิด=ขยาย | ปิด=รีเซ็ต", Value=false,
     Callback=function(state) SetTargeting(state) end,
 })
@@ -736,7 +742,104 @@ CarTab:Input({
     end,
 })
 
+-- ==================== CAR ESP ====================
+
+local CarESP = {
+    Enabled = false,
+    Color = Color3.fromRGB(255, 255, 255),
+    BillboardConns = {},
+    Boards = {},
+}
+
+local function ClearCarESP()
+    for _, bb in pairs(CarESP.Boards) do
+        pcall(function() bb:Destroy() end)
+    end
+    CarESP.Boards = {}
+end
+
+local function ApplyCarESP()
+    ClearCarESP()
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then return end
+    for _, car in pairs(keepCar:GetChildren()) do
+        -- หา BasePart ที่เป็น root ของรถ (PrimaryPart หรือ part แรก)
+        local root = car:IsA("Model") and (car.PrimaryPart or car:FindFirstChildWhichIsA("BasePart"))
+        if not root then
+            -- อาจเป็น Folder/BasePart โดยตรง
+            for _, d in pairs(car:GetDescendants()) do
+                if d:IsA("BasePart") then root = d break end
+            end
+        end
+        if not root then continue end
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "CarESP_" .. car.Name
+        bb.Adornee = root
+        bb.Size = UDim2.new(0, 200, 0, 40)
+        bb.StudsOffset = Vector3.new(0, 5, 0)
+        bb.AlwaysOnTop = true
+        bb.LightInfluence = 0
+        bb.Parent = root
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = car.Name
+        label.TextColor3 = CarESP.Color
+        label.TextStrokeTransparency = 0
+        label.TextStrokeColor3 = Color3.new(0, 0, 0)
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+        label.Parent = bb
+
+        table.insert(CarESP.Boards, bb)
+    end
+    return #CarESP.Boards
+end
+
+local function SetCarESP(state)
+    CarESP.Enabled = state
+    if state then
+        local count = ApplyCarESP()
+        Notify("ESP รถ ON", ("แสดงชื่อ %d คัน"):format(count or 0), "eye", 4)
+    else
+        ClearCarESP()
+        Notify("ESP รถ OFF", "ซ่อนชื่อรถแล้ว", "eye-off", 3)
+    end
+end
+
 CarTab:Section({ Title = "👁️ การมองเห็น" })
+
+CarTab:Toggle({
+    Title="ESP ชื่อรถ", Desc="แสดงชื่อรถลอยเหนือคัน", Value=false,
+    Callback=function(state) SetCarESP(state) end,
+})
+CarTab:Space()
+CarTab:Colorpicker({
+    Title="สี ESP ชื่อรถ", Default=Color3.fromRGB(255,255,255),
+    Callback=function(c)
+        CarESP.Color = c
+        -- อัพเดทสีทันทีถ้าเปิดอยู่
+        if CarESP.Enabled then
+            for _, bb in pairs(CarESP.Boards) do
+                local lbl = bb:FindFirstChildOfClass("TextLabel")
+                if lbl then lbl.TextColor3 = c end
+            end
+        end
+    end,
+})
+CarTab:Space()
+CarTab:Button({
+    Title="รีเฟรช ESP ชื่อรถ", Icon="refresh-cw",
+    Callback=function()
+        if not CarESP.Enabled then Notify("คำเตือน","เปิด ESP ก่อน!","alert-triangle") return end
+        local count = ApplyCarESP()
+        Notify("รีเฟรชแล้ว", ("แสดง %d คัน"):format(count or 0), "refresh-cw", 3)
+    end,
+})
+CarTab:Space()
+
 CarTab:Toggle({
     Title="เปิดไฮไลท์ล้อ", Value=true,
     Callback=function(state)
@@ -752,7 +855,7 @@ CarTab:Colorpicker({
         if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) end
     end,
 })
-
+CarTab:Space()
 CarTab:Section({ Title = "🔧 ควบคุม" })
 CarTab:Keybind({
     Title="ปุ่ม Toggle ล้อรถ", Desc="กดเพื่อเปิด/ปิดขยายล้อ", Value="Z",
@@ -762,7 +865,7 @@ CarTab:Keybind({
     end,
 })
 CarTab:Space()
-CarTab:Toggle({
+local WheelToggle = CarTab:Toggle({
     Title="เปิดขยายยางรถ", Desc="เปิด=ขยาย | ปิด=รีเซ็ต", Value=false,
     Callback=function(state) SetWheels(state) end,
 })
