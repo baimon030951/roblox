@@ -1,168 +1,362 @@
---[[
-    God Weapon v2.0 - WindUI
-    Author: TheTorch
-    Fixed by: Claude (bug fix - missing Notify strings)
-]]
+local UI_URL = "https://raw.githubusercontent.com/patdanai-t/VertexUI/refs/heads/main/VertexUI.lua"
+local Vertex = loadstring(game:HttpGet(UI_URL))()
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local LocalPlayer = Players.LocalPlayer
 
-local Window = WindUI:CreateWindow({
-    Title = "God Weapon", Icon = "sword", Author = "โดย TheTorch",
-    Folder = "GodWeaponConfig", Theme = "Dark",
-    Resizable = true, Transparent = true, BackgroundImageTransparency = 0.85,
-    SideBarWidth = 200, ScrollBarEnabled = true,
-    Size = UDim2.fromOffset(640, 500),
-    User = { Enabled = true, Anonymous = false },
+local window = Vertex:CreateWindow({
+    Name = "GodWeapon",
+    Title = "Vertex Hub",
+    SecondaryBadge = "God Weapon",
+    Version = "v2.0",
+    ToggleKey = "RightControl",
+    ConfigFolder = "GodWeaponConfig",
+    LoadingDuration = 1.5
 })
-Window:Tag({ Title = "v2.0", Icon = "zap", Color = Color3.fromHex("#00ffcc"), Radius = 6 })
 
-local PVPTab      = Window:Tab({ Title = "ต่อสู้",  Icon = "crosshair"    })
-local FarmTab     = Window:Tab({ Title = "ฟาร์ม",   Icon = "briefcase"    })
-local TeleportTab = Window:Tab({ Title = "เทเลพอต", Icon = "map-pin"      })
-local ActivityTab = Window:Tab({ Title = "กิจกรรม", Icon = "party-popper" })
-local CarTab      = Window:Tab({ Title = "รถยนต์",  Icon = "car"          })
-local SettingsTab = Window:Tab({ Title = "ตั้งค่า", Icon = "settings"     })
+if window.Backdrop then
+    window.Backdrop.BackgroundTransparency = 0.55
+end
 
--- ==================== CONFIG ====================
 local GUIActive = true
-
-local Keys = { Hitbox = Enum.KeyCode.X, Wheel = Enum.KeyCode.Z }
+local uiReady = false
 
 local Config = {
-    ExcludedPlayers  = {},
+    ExcludedPlayer = "None",
     TargetingEnabled = false,
-    Highlight = { Enabled = true, Color = Color3.fromRGB(0,255,255), Transparency = 0.7 },
-    Target    = { Size = Vector3.new(20,20,20), RefreshInterval = 1 },
-    Truck     = { Selected = nil },
-    AutoArmor = { Enabled = false, KeyNumber = 1 },
-    Farm = {
-        Settings  = { TeleportDelay=5, TeleportCount=1, CollectAmount=5, FarmMode=1 },
-        Grape     = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
-        Rock      = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
-        ScrapIron = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
-        Garbage   = { Enabled=false, Visited={}, TeleportCounter=0, Index=1 },
+    Highlight = {
+        Enabled = true,
+        Color = Color3.fromRGB(0, 255, 255),
+        Transparency = 0.7
     },
-    Proximity = { Enabled=false, Distance=50 },
+    Target = {
+        Size = Vector3.new(20, 20, 20),
+        RefreshInterval = 1
+    },
+    Truck = {
+        Selected = nil,
+        AutoCollectEnabled = false,
+        CollectItemName = "blueshard"
+    },
+    AutoArmor = {
+        Enabled = false,
+        KeyNumber = 1
+    },
+    Farm = {
+        Settings = {
+            TeleportDelay = 5,
+            TeleportCount = 1,
+            CollectAmount = 5,
+            FarmMode = 1
+        },
+        Grape = {Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1},
+        Rock = {Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1},
+        ScrapIron = {Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1},
+        Garbage = {Enabled = false, Visited = {}, TeleportCounter = 0, Index = 1}
+    },
+    Proximity = {
+        Enabled = false,
+        Distance = 50
+    }
 }
 
 local CarConfig = {
-    ExcludedCars={}, WheelSize=Vector3.new(10,10,10),
-    Enabled=false, HighlightEnabled=true,
-    HighlightColor=Color3.fromRGB(255,165,0),
-    FillTransparency=0.5,
-    OutlineTransparency=0,
+    ExcludedCar = "None",
+    WheelSize = Vector3.new(10, 10, 10),
+    Enabled = false,
+    HighlightEnabled = true,
+    HighlightColor = Color3.fromRGB(255, 165, 0),
+    FillTransparency = 0.5,
+    OutlineTransparency = 0
 }
 
--- ==================== UTILITY ====================
+local CarESP = {
+    Enabled = false,
+    Color = Color3.fromRGB(255, 255, 255),
+    Boards = {}
+}
+
+local SavedCF = nil
+local WheelConns = {}
+local HitboxToggle
+local WheelToggle
+local uiToggleKeybind
+local farmToggleRefs = {}
+
+local function resolveNotifyType(icon, title)
+    local text = (tostring(icon or "") .. " " .. tostring(title or "")):lower()
+    if text:find("alert") or text:find("warning") or text:find("off") then
+        return "warning"
+    end
+    if text:find("error") or text:find("x%-circle") or text:find("fail") then
+        return "error"
+    end
+    if text:find("success") or text:find("on") or text:find("refresh") or text:find("zap") then
+        return "success"
+    end
+    return "info"
+end
 
 local function Notify(title, text, icon, dur)
-    WindUI:Notify({ Title=title, Content=text, Icon=icon or "bell", Duration=dur or 3 })
+    window:Notify({
+        Title = title,
+        Description = text,
+        Type = resolveNotifyType(icon, title),
+        Duration = dur or 3
+    })
 end
 
 local function GetAllPlayers()
-    local t = {}
-    for _, p in pairs(game.Players:GetPlayers()) do table.insert(t, p.Name) end
-    return t
+    local list = {"None"}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(list, player.Name)
+        end
+    end
+    table.sort(list, function(a, b)
+        if a == "None" then
+            return true
+        end
+        if b == "None" then
+            return false
+        end
+        return a < b
+    end)
+    return list
 end
 
--- ==================== TRUCK ====================
+local function GetAllCars()
+    local list = {"None"}
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if keepCar then
+        for _, car in ipairs(keepCar:GetChildren()) do
+            table.insert(list, car.Name)
+        end
+    end
+    table.sort(list, function(a, b)
+        if a == "None" then
+            return true
+        end
+        if b == "None" then
+            return false
+        end
+        return a < b
+    end)
+    return list
+end
 
 local function ScanPlayerTrucks()
-    local player = game.Players.LocalPlayer
     local trucks = {}
-    for _, v in pairs(player:GetChildren()) do
-        if v:IsA("Model") or v:IsA("Folder") or v:IsA("Tool") then
-            local n = v.Name:lower()
-            if n:find("truck") or n:find("kg") or n:find("army") or n:find("free") or n:find("car") or n:find("van") then
-                table.insert(trucks, v.Name)
+    local cache = workspace:FindFirstChild("CachePart")
+    if cache then
+        local prefix = LocalPlayer.Name
+        for _, child in ipairs(cache:GetChildren()) do
+            if string.sub(child.Name, 1, #prefix) == prefix then
+                table.insert(trucks, child.Name)
             end
         end
     end
-    if #trucks == 0 then
-        local cache = workspace:FindFirstChild("CachePart")
-        if cache then
-            for _, v in pairs(cache:GetChildren()) do
-                if v.Name:find(player.Name) then table.insert(trucks, v.Name) end
-            end
-        end
-    end
+
+    table.sort(trucks)
     return trucks
 end
 
-local function GetTruck()
-    local player = game.Players.LocalPlayer
-    if Config.Truck.Selected then
-        local t = player:FindFirstChild(Config.Truck.Selected)
-        if t then return t end
-        local cache = workspace:FindFirstChild("CachePart")
-        if cache then
-            local ct = cache:FindFirstChild(Config.Truck.Selected)
-            if ct then return ct end
+local function GetPlayerTruckObjectName(selectedName)
+    if not selectedName or selectedName == "None" then
+        return nil
+    end
+
+    local prefix = LocalPlayer.Name
+    if string.sub(selectedName, 1, #prefix) == prefix then
+        local trimmed = string.sub(selectedName, #prefix + 1)
+        if trimmed ~= "" then
+            return trimmed
         end
     end
-    for _, v in pairs(player:GetChildren()) do
-        if v:IsA("Model") or v:IsA("Folder") or v:IsA("Tool") then
-            local n = v.Name:lower()
-            if n:find("truck") or n:find("kg") or n:find("army") or n:find("free") then
-                Config.Truck.Selected = v.Name
-                return v
+
+    return selectedName
+end
+
+local function GetTruck()
+    if Config.Truck.Selected then
+        local playerTruckName = GetPlayerTruckObjectName(Config.Truck.Selected)
+        if playerTruckName then
+            local directTruck = LocalPlayer:FindFirstChild(playerTruckName)
+            if directTruck then
+                return directTruck
+            end
+        end
+
+        local cache = workspace:FindFirstChild("CachePart")
+        if cache then
+            local cacheTruck = cache:FindFirstChild(Config.Truck.Selected)
+            if cacheTruck then
+                return cacheTruck
             end
         end
     end
+
+    local cache = workspace:FindFirstChild("CachePart")
+    if cache then
+        local prefix = LocalPlayer.Name
+        for _, child in ipairs(cache:GetChildren()) do
+            if string.sub(child.Name, 1, #prefix) == prefix then
+                Config.Truck.Selected = child.Name
+                return child
+            end
+        end
+    end
+
     return nil
 end
 
--- ==================== TARGET ====================
+local function ResolveTruckCollectItem()
+    if Config.Farm.Grape.Enabled then
+        return "Grape"
+    end
+    if Config.Farm.Rock.Enabled then
+        return "Rock"
+    end
+    if Config.Farm.ScrapIron.Enabled then
+        return "ScrapIron"
+    end
+    if Config.Farm.Garbage.Enabled then
+        return "Garbage"
+    end
+    return Config.Truck.CollectItemName
+end
+
+local function SetTruckAutoCollect(state)
+    Config.Truck.AutoCollectEnabled = state
+    if state then
+        task.spawn(function()
+            while Config.Truck.AutoCollectEnabled do
+                local truck = GetTruck()
+                local itemName = ResolveTruckCollectItem()
+                if truck then
+                    pcall(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("data"):FireServer(
+                            "post",
+                            itemName,
+                            1,
+                            truck
+                        )
+                    end)
+                end
+                task.wait(1)
+            end
+        end)
+
+        if uiReady then
+            Notify("Truck", "เปิดเก็บของหลังรถแล้ว", "success", 3)
+        end
+    else
+        if uiReady then
+            Notify("Truck", "ปิดเก็บของหลังรถแล้ว", "warning", 3)
+        end
+    end
+end
 
 local function ApplyTargeting()
     local modified, skipped = 0, 0
-    local exclude = {}
-    for _, n in pairs(Config.ExcludedPlayers) do exclude[n] = true end
-    for _, player in pairs(game.Players:GetPlayers()) do
-        if exclude[player.Name] then skipped += 1 continue end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then
+            continue
+        end
+
+        if Config.ExcludedPlayer ~= "None" and player.Name == Config.ExcludedPlayer then
+            skipped += 1
+            continue
+        end
+
         local model = workspace:FindFirstChild(player.Name)
-        if not model then continue end
+        if not model then
+            continue
+        end
+
         local head2 = model:FindFirstChild("Head2")
-        if not head2 then continue end
-        for _, child in pairs(head2:GetChildren()) do
-            if not child.Name:match("^TARGET_") or not child:IsA("BasePart") then continue end
+        if not head2 then
+            continue
+        end
+
+        for _, child in ipairs(head2:GetChildren()) do
+            if not child:IsA("BasePart") or not child.Name:match("^TARGET_") then
+                continue
+            end
+
             child.Size = Config.Target.Size
             child.Transparency = Config.Highlight.Transparency
-            local hl = child:FindFirstChildOfClass("Highlight") or Instance.new("Highlight", child)
-            hl.FillColor=Config.Highlight.Color hl.OutlineColor=Config.Highlight.Color
-            hl.FillTransparency=1 hl.OutlineTransparency=0 hl.Enabled=Config.Highlight.Enabled
-            local sb = child:FindFirstChildOfClass("SelectionBox")
-            if not sb then sb=Instance.new("SelectionBox",child) sb.Adornee=child end
-            sb.Color3=Config.Highlight.Color sb.LineThickness=0.05 sb.Transparency=0 sb.Visible=Config.Highlight.Enabled
+
+            local highlight = child:FindFirstChildOfClass("Highlight") or Instance.new("Highlight")
+            highlight.FillColor = Config.Highlight.Color
+            highlight.OutlineColor = Config.Highlight.Color
+            highlight.FillTransparency = 1
+            highlight.OutlineTransparency = 0
+            highlight.Enabled = Config.Highlight.Enabled
+            highlight.Parent = child
+
+            local selectionBox = child:FindFirstChildOfClass("SelectionBox") or Instance.new("SelectionBox")
+            selectionBox.Adornee = child
+            selectionBox.Color3 = Config.Highlight.Color
+            selectionBox.LineThickness = 0.05
+            selectionBox.Transparency = 0
+            selectionBox.Visible = Config.Highlight.Enabled
+            selectionBox.Parent = child
+
             modified += 1
         end
     end
+
     return modified, skipped
 end
 
 local function ResetTargeting()
     local count = 0
-    for _, player in pairs(game.Players:GetPlayers()) do
+    for _, player in ipairs(Players:GetPlayers()) do
         local model = workspace:FindFirstChild(player.Name)
-        if not model then continue end
+        if not model then
+            continue
+        end
+
         local head2 = model:FindFirstChild("Head2")
-        if not head2 then continue end
-        for _, child in pairs(head2:GetChildren()) do
-            if not child.Name:match("^TARGET_") or not child:IsA("BasePart") then continue end
-            child.Size = Vector3.new(0,0,0)
-            local hl = child:FindFirstChildOfClass("Highlight") if hl then hl:Destroy() end
-            local sb = child:FindFirstChildOfClass("SelectionBox") if sb then sb:Destroy() end
+        if not head2 then
+            continue
+        end
+
+        for _, child in ipairs(head2:GetChildren()) do
+            if not child:IsA("BasePart") or not child.Name:match("^TARGET_") then
+                continue
+            end
+
+            child.Size = Vector3.zero
+
+            local highlight = child:FindFirstChildOfClass("Highlight")
+            if highlight then
+                highlight:Destroy()
+            end
+
+            local selectionBox = child:FindFirstChildOfClass("SelectionBox")
+            if selectionBox then
+                selectionBox:Destroy()
+            end
+
             count += 1
         end
     end
+
     return count
 end
 
 local function SetTargeting(state)
     Config.TargetingEnabled = state
     if state then
-        local m, s = ApplyTargeting()
-        Notify("Hitbox ON", ("ปรับ %d | ข้าม %d"):format(m,s), "crosshair", 4)
+        local modified, skipped = ApplyTargeting()
+        if uiReady then
+            Notify("Hitbox ON", ("ปรับ %d | ข้าม %d"):format(modified, skipped), "success", 4)
+        end
+
         task.spawn(function()
             while Config.TargetingEnabled do
                 ApplyTargeting()
@@ -170,30 +364,52 @@ local function SetTargeting(state)
             end
         end)
     else
-        Notify("Hitbox OFF", ("รีเซ็ต %d เป้าหมาย"):format(ResetTargeting()), "x-circle", 4)
+        local count = ResetTargeting()
+        if uiReady then
+            Notify("Hitbox OFF", ("รีเซ็ต %d เป้าหมาย"):format(count), "warning", 4)
+        end
     end
 end
 
--- ==================== FARM ====================
+local function GetPosKey(pos)
+    return ("%.2f_%.2f_%.2f"):format(pos.X, pos.Y, pos.Z)
+end
 
-local function GetPosKey(pos) return ("%.2f_%.2f_%.2f"):format(pos.X,pos.Y,pos.Z) end
-local function CountT(t) local c=0 for _ in pairs(t) do c+=1 end return c end
+local function CountT(tbl)
+    local count = 0
+    for _ in pairs(tbl) do
+        count += 1
+    end
+    return count
+end
 
 local function TpJump(cf)
-    local char = game.Players.LocalPlayer.Character
-    if not char then return false end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChild("Humanoid")
-    if not hrp or not hum then return false end
-    pcall(function() hrp.CFrame = cf end)
-    task.wait(0.1)
-    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+    local character = LocalPlayer.Character
+    if not character then
+        return false
+    end
+
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not hrp or not humanoid then
+        return false
+    end
+
     pcall(function()
-        local VIM = game:GetService("VirtualInputManager")
-        VIM:SendKeyEvent(true, Enum.KeyCode.S, false, game)
-        task.wait(0.2)
-        VIM:SendKeyEvent(false, Enum.KeyCode.S, false, game)
+        hrp.CFrame = cf
     end)
+    task.wait(0.1)
+
+    pcall(function()
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end)
+
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.S, false, game)
+        task.wait(0.2)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.S, false, game)
+    end)
+
     return true
 end
 
@@ -209,124 +425,240 @@ local function RunFarm(data, folderName, itemName)
             task.wait(Config.Farm.Settings.TeleportDelay)
         end
     end)
+
     task.spawn(function()
         while data.Enabled do
-            local sc = workspace:FindFirstChild("JOB")
-            sc = sc and sc:FindFirstChild("JOB")
-            sc = sc and sc:FindFirstChild("SCRIPT")
-            local folder = sc and sc:FindFirstChild(folderName)
-            if not folder then task.wait(1) continue end
-            local items = {}
-            for _, g in pairs(folder:GetChildren()) do
-                if g:IsA("BasePart") then table.insert(items, g) end
+            local scriptRoot = workspace:FindFirstChild("JOB")
+            scriptRoot = scriptRoot and scriptRoot:FindFirstChild("JOB")
+            scriptRoot = scriptRoot and scriptRoot:FindFirstChild("SCRIPT")
+            local folder = scriptRoot and scriptRoot:FindFirstChild(folderName)
+            if not folder then
+                task.wait(1)
+                continue
             end
-            if #items == 0 then task.wait(1) continue end
-            local S = Config.Farm.Settings
-            if S.FarmMode == 2 then
-                if data.Index > #items then data.Index=1 data.TeleportCounter=0 task.wait(0.5) continue end
+
+            local items = {}
+            for _, child in ipairs(folder:GetChildren()) do
+                if child:IsA("BasePart") then
+                    table.insert(items, child)
+                end
+            end
+
+            if #items == 0 then
+                task.wait(1)
+                continue
+            end
+
+            local settings = Config.Farm.Settings
+            if settings.FarmMode == 2 then
+                if data.Index > #items then
+                    data.Index = 1
+                    data.TeleportCounter = 0
+                    task.wait(0.5)
+                    continue
+                end
+
                 local item = items[data.Index]
                 data.TeleportCounter += 1
                 if TpJump(item.CFrame) then
-                    if data.TeleportCounter >= S.TeleportCount then data.Index+=1 data.TeleportCounter=0 end
-                    task.wait(S.TeleportDelay)
+                    if data.TeleportCounter >= settings.TeleportCount then
+                        data.Index += 1
+                        data.TeleportCounter = 0
+                    end
+                    task.wait(settings.TeleportDelay)
                 end
             else
-                if CountT(data.Visited) >= #items then data.Visited={} task.wait(0.5) end
-                local target, key
-                for _, g in pairs(folder:GetChildren()) do
-                    if not g:IsA("BasePart") then continue end
-                    local k = GetPosKey(g.Position)
-                    if not data.Visited[k] then target=g key=k break end
+                if CountT(data.Visited) >= #items then
+                    data.Visited = {}
+                    task.wait(0.5)
                 end
+
+                local target, key
+                for _, child in ipairs(folder:GetChildren()) do
+                    if child:IsA("BasePart") then
+                        local positionKey = GetPosKey(child.Position)
+                        if not data.Visited[positionKey] then
+                            target = child
+                            key = positionKey
+                            break
+                        end
+                    end
+                end
+
                 if target then
                     data.TeleportCounter += 1
                     if TpJump(target.CFrame) then
-                        if data.TeleportCounter >= S.TeleportCount then data.Visited[key]=true data.TeleportCounter=0 end
-                        task.wait(S.TeleportDelay)
+                        if data.TeleportCounter >= settings.TeleportCount then
+                            data.Visited[key] = true
+                            data.TeleportCounter = 0
+                        end
+                        task.wait(settings.TeleportDelay)
                     end
                 else
-                    data.Visited={} data.TeleportCounter=0 task.wait(0.5)
+                    data.Visited = {}
+                    data.TeleportCounter = 0
+                    task.wait(0.5)
                 end
             end
         end
     end)
 end
 
--- ==================== CAR ====================
+local farms = {
+    {title = "ฟาร์มองุ่น", data = Config.Farm.Grape, folder = "Grape", item = "Grape"},
+    {title = "ฟาร์มหิน", data = Config.Farm.Rock, folder = "Miner", item = "Rock"},
+    {title = "ฟาร์มเหล็ก", data = Config.Farm.ScrapIron, folder = "ScrapIron", item = "ScrapIron"},
+    {title = "ฟาร์มขยะ", data = Config.Farm.Garbage, folder = "Garbage", item = "Garbage"}
+}
 
-local WheelConns = {}
+local function StopAllFarms(reason)
+    local stopped = false
+    for _, farm in ipairs(farms) do
+        if farm.data.Enabled then
+            farm.data.Enabled = false
+            stopped = true
+        end
+    end
 
-local function ClearConns()
-    for _, c in pairs(WheelConns) do c:Disconnect() end
-    WheelConns = {}
+    for _, toggle in pairs(farmToggleRefs) do
+        if toggle:Get() then
+            toggle:Set(false)
+        end
+    end
+
+    if stopped and uiReady then
+        Notify("⚠️ หยุดฟาร์ม", reason or "มีผู้เล่นเข้าใกล้!", "warning", 5)
+    end
 end
 
-local function GetAllCars()
-    local t = {}
-    local kc = workspace:FindFirstChild("KeepCar")
-    if kc then for _, c in pairs(kc:GetChildren()) do table.insert(t, c.Name) end end
-    return t
+local function ClearConns()
+    for _, connection in ipairs(WheelConns) do
+        connection:Disconnect()
+    end
+    WheelConns = {}
 end
 
 local function ApplyWheels(size)
     local keepCar = workspace:FindFirstChild("KeepCar")
-    if not keepCar then Notify("ผิดพลาด","ไม่พบ KeepCar","alert-triangle") return 0 end
-    local excl = {}
-    for _, n in pairs(CarConfig.ExcludedCars) do excl[n]=true end
+    if not keepCar then
+        if uiReady then
+            Notify("ผิดพลาด", "ไม่พบ KeepCar", "error")
+        end
+        return 0
+    end
+
     local count = 0
-    for _, car in pairs(keepCar:GetChildren()) do
-        if excl[car.Name] then continue end
+    for _, car in ipairs(keepCar:GetChildren()) do
+        if CarConfig.ExcludedCar ~= "None" and car.Name == CarConfig.ExcludedCar then
+            continue
+        end
+
         local chassis = car:FindFirstChild("Chassis")
-        if not chassis then continue end
-        for _, sn in ipairs({"SuspensionFL","SuspensionFR","SuspensionRL","SuspensionRR"}) do
-            local susp = chassis:FindFirstChild(sn)
-            if not susp then continue end
-            local wheel = susp:FindFirstChild("Wheel")
+        if not chassis then
+            continue
+        end
+
+        for _, suspensionName in ipairs({"SuspensionFL", "SuspensionFR", "SuspensionRL", "SuspensionRR"}) do
+            local suspension = chassis:FindFirstChild(suspensionName)
+            if not suspension then
+                continue
+            end
+
+            local wheel = suspension:FindFirstChild("Wheel")
             if not wheel then
-                for _, d in pairs(susp:GetDescendants()) do
-                    if d:IsA("BasePart") then wheel=d break end
+                for _, descendant in ipairs(suspension:GetDescendants()) do
+                    if descendant:IsA("BasePart") then
+                        wheel = descendant
+                        break
+                    end
                 end
             end
-            if not wheel then continue end
-            pcall(function() wheel.Size = size end)
-            for _, old in pairs(wheel:GetChildren()) do
-                if old:IsA("Highlight") or old:IsA("SelectionBox") then old:Destroy() end
+
+            if not wheel then
+                continue
             end
+
+            pcall(function()
+                wheel.Size = size
+            end)
+
+            for _, child in ipairs(wheel:GetChildren()) do
+                if child:IsA("Highlight") or child:IsA("SelectionBox") then
+                    child:Destroy()
+                end
+            end
+
             if CarConfig.HighlightEnabled then
-                local hl = Instance.new("Highlight")
-                hl.Adornee=wheel hl.FillColor=CarConfig.HighlightColor hl.OutlineColor=CarConfig.HighlightColor
-                hl.FillTransparency=CarConfig.FillTransparency hl.OutlineTransparency=CarConfig.OutlineTransparency
-                hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop hl.Enabled=true hl.Parent=wheel
-                local sb = Instance.new("SelectionBox")
-                sb.Adornee=wheel sb.Color3=CarConfig.HighlightColor
-                sb.LineThickness=0.05 sb.Transparency=0 sb.Visible=true sb.Parent=wheel
+                local highlight = Instance.new("Highlight")
+                highlight.Adornee = wheel
+                highlight.FillColor = CarConfig.HighlightColor
+                highlight.OutlineColor = CarConfig.HighlightColor
+                highlight.FillTransparency = CarConfig.FillTransparency
+                highlight.OutlineTransparency = CarConfig.OutlineTransparency
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.Enabled = true
+                highlight.Parent = wheel
+
+                local selectionBox = Instance.new("SelectionBox")
+                selectionBox.Adornee = wheel
+                selectionBox.Color3 = CarConfig.HighlightColor
+                selectionBox.LineThickness = 0.05
+                selectionBox.Transparency = 0
+                selectionBox.Visible = true
+                selectionBox.Parent = wheel
             end
+
             count += 1
         end
     end
-    if count == 0 then Notify("คำเตือน","ไม่พบล้อในรถ","alert-triangle") end
+
+    if count == 0 and uiReady then
+        Notify("คำเตือน", "ไม่พบล้อในรถ", "warning")
+    end
+
     return count
 end
 
 local function ResetWheels()
     local keepCar = workspace:FindFirstChild("KeepCar")
-    if not keepCar then return end
-    for _, car in pairs(keepCar:GetChildren()) do
+    if not keepCar then
+        return
+    end
+
+    for _, car in ipairs(keepCar:GetChildren()) do
         local chassis = car:FindFirstChild("Chassis")
-        if not chassis then continue end
-        for _, sn in ipairs({"SuspensionFL","SuspensionFR","SuspensionRL","SuspensionRR"}) do
-            local susp = chassis:FindFirstChild(sn)
-            if not susp then continue end
-            local wheel = susp:FindFirstChild("Wheel")
+        if not chassis then
+            continue
+        end
+
+        for _, suspensionName in ipairs({"SuspensionFL", "SuspensionFR", "SuspensionRL", "SuspensionRR"}) do
+            local suspension = chassis:FindFirstChild(suspensionName)
+            if not suspension then
+                continue
+            end
+
+            local wheel = suspension:FindFirstChild("Wheel")
             if not wheel then
-                for _, d in pairs(susp:GetDescendants()) do
-                    if d:IsA("BasePart") then wheel=d break end
+                for _, descendant in ipairs(suspension:GetDescendants()) do
+                    if descendant:IsA("BasePart") then
+                        wheel = descendant
+                        break
+                    end
                 end
             end
-            if not wheel then continue end
-            pcall(function() wheel.Size = Vector3.new(3,3,3) end)
-            for _, old in pairs(wheel:GetChildren()) do
-                if old:IsA("Highlight") or old:IsA("SelectionBox") then old:Destroy() end
+
+            if not wheel then
+                continue
+            end
+
+            pcall(function()
+                wheel.Size = Vector3.new(3, 3, 3)
+            end)
+
+            for _, child in ipairs(wheel:GetChildren()) do
+                if child:IsA("Highlight") or child:IsA("SelectionBox") then
+                    child:Destroy()
+                end
             end
         end
     end
@@ -334,27 +666,47 @@ end
 
 local function HookWheels(size)
     ClearConns()
+
     local keepCar = workspace:FindFirstChild("KeepCar")
-    if not keepCar then return end
-    local excl = {}
-    for _, n in pairs(CarConfig.ExcludedCars) do excl[n]=true end
-    for _, car in pairs(keepCar:GetChildren()) do
-        if excl[car.Name] then continue end
+    if not keepCar then
+        return
+    end
+
+    for _, car in ipairs(keepCar:GetChildren()) do
+        if CarConfig.ExcludedCar ~= "None" and car.Name == CarConfig.ExcludedCar then
+            continue
+        end
+
         local chassis = car:FindFirstChild("Chassis")
-        if not chassis then continue end
-        for _, sn in ipairs({"SuspensionFL","SuspensionFR","SuspensionRL","SuspensionRR"}) do
-            local susp = chassis:FindFirstChild(sn)
-            if not susp then continue end
-            local wheel = susp:FindFirstChild("Wheel")
+        if not chassis then
+            continue
+        end
+
+        for _, suspensionName in ipairs({"SuspensionFL", "SuspensionFR", "SuspensionRL", "SuspensionRR"}) do
+            local suspension = chassis:FindFirstChild(suspensionName)
+            if not suspension then
+                continue
+            end
+
+            local wheel = suspension:FindFirstChild("Wheel")
             if not wheel then
-                for _, d in pairs(susp:GetDescendants()) do
-                    if d:IsA("BasePart") then wheel=d break end
+                for _, descendant in ipairs(suspension:GetDescendants()) do
+                    if descendant:IsA("BasePart") then
+                        wheel = descendant
+                        break
+                    end
                 end
             end
-            if not wheel then continue end
+
+            if not wheel then
+                continue
+            end
+
             table.insert(WheelConns, wheel:GetPropertyChangedSignal("Size"):Connect(function()
                 if CarConfig.Enabled and wheel.Size ~= size then
-                    pcall(function() wheel.Size = size end)
+                    pcall(function()
+                        wheel.Size = size
+                    end)
                 end
             end))
         end
@@ -366,266 +718,681 @@ local function SetWheels(state)
     if state then
         local count = ApplyWheels(CarConfig.WheelSize)
         HookWheels(CarConfig.WheelSize)
-        Notify("ล้อรถ ON", ("ขยายยาง %d ล้อ"):format(count), "car", 4)
+        if uiReady then
+            Notify("ล้อรถ ON", ("ขยายยาง %d ล้อ"):format(count), "success", 4)
+        end
     else
-        ClearConns() ResetWheels()
-        Notify("ล้อรถ OFF", "รีเซ็ตขนาดยางแล้ว", "car", 4)
+        ClearConns()
+        ResetWheels()
+        if uiReady then
+            Notify("ล้อรถ OFF", "รีเซ็ตขนาดยางแล้ว", "warning", 4)
+        end
     end
 end
 
--- ==================== TELEPORT ====================
+local function ClearCarESP()
+    for _, board in ipairs(CarESP.Boards) do
+        pcall(function()
+            board:Destroy()
+        end)
+    end
+    CarESP.Boards = {}
+end
 
-local SavedCF = nil
+local function ApplyCarESP()
+    ClearCarESP()
+
+    local keepCar = workspace:FindFirstChild("KeepCar")
+    if not keepCar then
+        return 0
+    end
+
+    for _, car in ipairs(keepCar:GetChildren()) do
+        local root = nil
+        if car:IsA("Model") then
+            root = car.PrimaryPart or car:FindFirstChildWhichIsA("BasePart")
+        end
+
+        if not root then
+            for _, descendant in ipairs(car:GetDescendants()) do
+                if descendant:IsA("BasePart") then
+                    root = descendant
+                    break
+                end
+            end
+        end
+
+        if not root then
+            continue
+        end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "CarESP_" .. car.Name
+        billboard.Adornee = root
+        billboard.Size = UDim2.new(0, 200, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.LightInfluence = 0
+        billboard.Parent = root
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.fromScale(1, 1)
+        label.BackgroundTransparency = 1
+        label.Text = car.Name
+        label.TextColor3 = CarESP.Color
+        label.TextStrokeTransparency = 0
+        label.TextStrokeColor3 = Color3.new(0, 0, 0)
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+        label.Parent = billboard
+
+        table.insert(CarESP.Boards, billboard)
+    end
+
+    return #CarESP.Boards
+end
+
+local function SetCarESP(state)
+    CarESP.Enabled = state
+    if state then
+        local count = ApplyCarESP()
+        if uiReady then
+            Notify("ESP รถ ON", ("แสดงชื่อ %d คัน"):format(count), "success", 4)
+        end
+    else
+        ClearCarESP()
+        if uiReady then
+            Notify("ESP รถ OFF", "ซ่อนชื่อรถแล้ว", "warning", 3)
+        end
+    end
+end
 
 local function TpTo(cf)
-    local char = game.Players.LocalPlayer.Character
-    if not char then Notify("ผิดพลาด","ไม่พบตัวละคร","alert-triangle") return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then Notify("ผิดพลาด","ไม่พบ HumanoidRootPart","alert-triangle") return end
-    pcall(function() hrp.CFrame = cf end)
-end
-
--- ==================== KEYBIND (single listener) ====================
-
-game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
-    if gpe or not GUIActive then return end
-    if input.KeyCode == Keys.Hitbox then
-        local newState = not Config.TargetingEnabled
-        SetTargeting(newState)
-        if HitboxToggle then HitboxToggle:Set(newState) end
-    elseif input.KeyCode == Keys.Wheel then
-        local newState = not CarConfig.Enabled
-        SetWheels(newState)
-        if WheelToggle then WheelToggle:Set(newState) end
+    local character = LocalPlayer.Character
+    if not character then
+        Notify("ผิดพลาด", "ไม่พบตัวละคร", "error")
+        return
     end
-end)
 
--- ╔══════════════╗
--- ║  TAB: ต่อสู้  ║
--- ╚══════════════╝
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        Notify("ผิดพลาด", "ไม่พบ HumanoidRootPart", "error")
+        return
+    end
 
-PVPTab:Section({ Title = "🎯 ระบบเล็ง" })
-
-local playerDD = PVPTab:Dropdown({
-    Title="ยกเว้นผู้เล่น", Desc="ไม่ถูกปรับ Hitbox",
-    Values=GetAllPlayers(), Multi=true, AllowNone=true,
-    Callback=function(v)
-        Config.ExcludedPlayers=v
-        if Config.TargetingEnabled then ApplyTargeting() end
-    end,
-})
-
-PVPTab:Space()
-PVPTab:Button({
-    Title="รีเฟรชรายชื่อ", Icon="refresh-cw",
-    Callback=function() playerDD:Refresh(GetAllPlayers()) end,
-})
-PVPTab:Space()
-PVPTab:Input({
-    Title="ขนาด Hitbox (X,Y,Z)", Desc="เช่น 20,20,20",
-    Value="20,20,20", Placeholder="20,20,20",
-    Callback=function(v)
-        local vals={}
-        for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
-        if #vals==3 then
-            Config.Target.Size=Vector3.new(vals[1],vals[2],vals[3])
-            if Config.TargetingEnabled then ApplyTargeting() end
-        else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
-    end,
-})
-PVPTab:Input({
-    Title="รีเฟรชทุก (วิ)", Value="1", Placeholder="1",
-    Callback=function(v)
-        local n=tonumber(v)
-        if n and n>0 then Config.Target.RefreshInterval=n end
-    end,
-})
-PVPTab:Space()
-PVPTab:Keybind({
-    Title="ปุ่ม Toggle Hitbox", Desc="กดเพื่อเปิด/ปิด Hitbox", Value="X",
-    Callback=function(v)
-        local ok,kc=pcall(function() return Enum.KeyCode[v] end)
-        if ok and kc then Keys.Hitbox=kc end
-    end,
-})
-PVPTab:Space()
-local HitboxToggle = PVPTab:Toggle({
-    Title="เปิดปรับเป้าหมาย", Desc="เปิด=ขยาย | ปิด=รีเซ็ต", Value=false,
-    Callback=function(state) SetTargeting(state) end,
-})
-PVPTab:Space()
-PVPTab:Button({
-    Title="บังคับอัพเดท", Icon="zap",
-    Callback=function()
-        if not Config.TargetingEnabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
-        local m,s=ApplyTargeting()
-        Notify("อัพเดทแล้ว", ("ปรับ %d | ข้าม %d"):format(m,s), "zap", 5)
-    end,
-})
-
-PVPTab:Section({ Title = "🎨 การตั้งค่าภาพ" })
-PVPTab:Toggle({
-    Title="เปิดไฮไลท์", Value=true,
-    Callback=function(state)
-        Config.Highlight.Enabled=state
-        if Config.TargetingEnabled then ApplyTargeting() end
-    end,
-})
-PVPTab:Space()
-PVPTab:Slider({
-    Title="ความโปร่งใส", Desc="0=ทึบ / 1=ใส", Step=0.01,
-    Value={Min=0, Max=1, Default=0.7},
-    Callback=function(v)
-        Config.Highlight.Transparency=v
-        if Config.TargetingEnabled then ApplyTargeting() end
-    end,
-})
-PVPTab:Space()
-PVPTab:Colorpicker({
-    Title="สีไฮไลท์", Default=Color3.fromRGB(0,255,255),
-    Callback=function(c)
-        Config.Highlight.Color=c
-        if Config.TargetingEnabled then ApplyTargeting() end
-    end,
-})
-
-PVPTab:Section({ Title = "🛡️ เกราะอัตโนมัติ" })
-PVPTab:Input({
-    Title="ปุ่มเกราะ (1-8)", Value="1", Placeholder="1",
-    Callback=function(v)
-        local n=tonumber(v)
-        if n and n>=1 and n<=8 then Config.AutoArmor.KeyNumber=math.floor(n) end
-    end,
-})
-PVPTab:Space()
-
-local function CheckArmor()
-    local model=workspace:FindFirstChild(game.Players.LocalPlayer.Name)
-    if not model or model:FindFirstChild("BodyArmor") then return end
-    local keyMap={
-        Enum.KeyCode.One,Enum.KeyCode.Two,Enum.KeyCode.Three,Enum.KeyCode.Four,
-        Enum.KeyCode.Five,Enum.KeyCode.Six,Enum.KeyCode.Seven,Enum.KeyCode.Eight,
-    }
-    local kc=keyMap[Config.AutoArmor.KeyNumber]
-    if not kc then return end
     pcall(function()
-        local VIM=game:GetService("VirtualInputManager")
-        VIM:SendKeyEvent(true,kc,false,game) task.wait(0.1) VIM:SendKeyEvent(false,kc,false,game)
+        hrp.CFrame = cf
     end)
 end
 
-PVPTab:Toggle({
-    Title="สวมเกราะอัตโนมัติ", Desc="สวมเมื่อไม่มี BodyArmor", Value=false,
-    Callback=function(state)
-        Config.AutoArmor.Enabled=state
-        if state then
-            task.spawn(function() while Config.AutoArmor.Enabled do CheckArmor() task.wait(1) end end)
-        end
-    end,
-})
-
--- ╔══════════════╗
--- ║  TAB: ฟาร์ม  ║
--- ╚══════════════╝
-
-FarmTab:Section({ Title = "🚛 รถบรรทุก" })
-
-local truckDD = FarmTab:Dropdown({
-    Title="เลือกรถบรรทุก", Values={}, AllowNone=false,
-    Callback=function(v) Config.Truck.Selected=v end,
-})
-FarmTab:Space()
-FarmTab:Button({
-    Title="สแกนรถของฉัน", Icon="search",
-    Callback=function()
-        local trucks=ScanPlayerTrucks()
-        if #trucks>0 then
-            truckDD:Refresh(trucks)
-            if not Config.Truck.Selected then Config.Truck.Selected=trucks[1] truckDD:Set(trucks[1]) end
-            Notify("พบรถ", ("พบ %d คัน"):format(#trucks), "truck")
-        else
-            local all={}
-            for _,v in pairs(game.Players.LocalPlayer:GetChildren()) do
-                if v:IsA("Model") or v:IsA("Folder") then table.insert(all,v.Name) end
-            end
-            if #all>0 then truckDD:Refresh(all)
-            else Notify("ไม่พบรถ","ไม่พบรถ","alert-triangle") end
-        end
-    end,
-})
-
-FarmTab:Section({ Title = "⚙️ ตั้งค่าฟาร์ม (ทุกฟาร์ม)" })
-FarmTab:Dropdown({
-    Title="โหมดฟาร์ม",
-    Values={"โหมด 1 - วาปซ้ำได้","โหมด 2 - ไม่ซ้ำเรื่อยๆ"},
-    Value="โหมด 1 - วาปซ้ำได้", AllowNone=false,
-    Callback=function(v) Config.Farm.Settings.FarmMode=(v=="โหมด 1 - วาปซ้ำได้") and 1 or 2 end,
-})
-FarmTab:Space()
-FarmTab:Input({ Title="ดีเลวาป (วิ)", Value="5", Placeholder="5",
-    Callback=function(v) local n=tonumber(v) if n and n>0 then Config.Farm.Settings.TeleportDelay=n end end })
-FarmTab:Input({ Title="วาปกี่ครั้งจึงเก็บ", Value="1", Placeholder="1",
-    Callback=function(v) local n=tonumber(v) if n and n>=1 then Config.Farm.Settings.TeleportCount=math.floor(n) end end })
-FarmTab:Input({ Title="จำนวนที่เก็บต่อครั้ง", Value="5", Placeholder="5",
-    Callback=function(v) local n=tonumber(v) if n and n>=1 then Config.Farm.Settings.CollectAmount=math.floor(n) end end })
-
-local farms = {
-    { t="🍇 ฟาร์มองุ่น", d=Config.Farm.Grape,     f="Grape",     i="Grape"     },
-    { t="🪨 ฟาร์มหิน",   d=Config.Farm.Rock,      f="Miner",     i="Rock"      },
-    { t="⚙️ ฟาร์มเหล็ก", d=Config.Farm.ScrapIron, f="ScrapIron", i="ScrapIron" },
-    { t="🗑️ ฟาร์มขยะ",   d=Config.Farm.Garbage,   f="Garbage",   i="Garbage"   },
-}
-
-local function StopAllFarms(reason)
-    local stopped = false
-    for _, fm in ipairs(farms) do
-        if fm.d.Enabled then
-            fm.d.Enabled = false
-            stopped = true
-        end
+local function CheckArmor()
+    local model = workspace:FindFirstChild(LocalPlayer.Name)
+    if not model or model:FindFirstChild("BodyArmor") then
+        return
     end
-    if stopped then
-        Notify("⚠️ หยุดฟาร์ม", reason or "มีผู้เล่นเข้าใกล้!", "alert-triangle", 5)
+
+    local keyMap = {
+        Enum.KeyCode.One,
+        Enum.KeyCode.Two,
+        Enum.KeyCode.Three,
+        Enum.KeyCode.Four,
+        Enum.KeyCode.Five,
+        Enum.KeyCode.Six,
+        Enum.KeyCode.Seven,
+        Enum.KeyCode.Eight
+    }
+
+    local keyCode = keyMap[Config.AutoArmor.KeyNumber]
+    if not keyCode then
+        return
     end
+
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+    end)
 end
 
-for _, fm in ipairs(farms) do
-    FarmTab:Section({ Title = fm.t })
-    FarmTab:Toggle({
-        Title=fm.t.."อัตโนมัติ", Desc="วาปเก็บแล้วส่งรถ", Value=false,
-        Callback=function(state)
-            fm.d.Enabled=state
-            if state then RunFarm(fm.d,fm.f,fm.i) end
-        end,
+local function GetRootPart()
+    local character = LocalPlayer.Character
+    if not character then
+        return nil
+    end
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetCarPrimaryPart(car)
+    if car:IsA("Model") then
+        return car.PrimaryPart or car:FindFirstChildWhichIsA("BasePart", true)
+    end
+    if car:IsA("BasePart") then
+        return car
+    end
+    return car:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function FindAttributeName(instance, targetName)
+    for attributeName in pairs(instance:GetAttributes()) do
+        if string.lower(attributeName) == string.lower(targetName) then
+            return attributeName
+        end
+    end
+    return nil
+end
+
+-- ===== Baccarat functions (ไม่แก้ไข) =====
+local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+local function getBaccaratSource()
+    local gameZone = playerGui:FindFirstChild("GameZone")
+    if gameZone then
+        local remoteHolder = gameZone:FindFirstChild("remote")
+        local remote = remoteHolder and remoteHolder.Value
+        if remoteHolder and remoteHolder:IsA("ObjectValue") and typeof(remote) == "Instance" then
+            return gameZone, remote
+        end
+    end
+
+    return nil, nil
+end
+
+local function decodeBaccaratHistory(remote)
+    if not remote or not remote.Parent then
+        return {}
+    end
+
+    local historyRaw = remote.Parent:GetAttribute("history")
+    if type(historyRaw) ~= "string" or historyRaw == "" then
+        return {}
+    end
+
+    local httpService = game:GetService("HttpService")
+    local ok, decoded = pcall(function()
+        return httpService:JSONDecode(historyRaw)
+    end)
+
+    if ok and type(decoded) == "table" then
+        return decoded
+    end
+
+    return {}
+end
+
+local function formatBaccaratResult(entry)
+    if entry == "playerwin" then
+        return "P"
+    elseif entry == "bankerwin" then
+        return "B"
+    elseif entry == "tie" then
+        return "T"
+    end
+    return "?"
+end
+
+local function predictBaccarat(history)
+    local weights = {
+        banker = 0,
+        player = 0,
+        tie = 0
+    }
+
+    local recentCount = math.min(#history, 20)
+    for i = 1, recentCount do
+        local entry = history[#history - recentCount + i]
+        local weight = i
+
+        if entry == "bankerwin" then
+            weights.banker = weights.banker + weight
+        elseif entry == "playerwin" then
+            weights.player = weights.player + weight
+        elseif entry == "tie" then
+            weights.tie = weights.tie + (weight * 0.6)
+        end
+    end
+
+    local streakType = nil
+    local streakCount = 0
+    for i = #history, 1, -1 do
+        local entry = history[i]
+        if not streakType then
+            streakType = entry
+            streakCount = 1
+        elseif entry == streakType then
+            streakCount = streakCount + 1
+        else
+            break
+        end
+    end
+
+    if streakType == "bankerwin" then
+        weights.banker = weights.banker + (streakCount * 2.5)
+    elseif streakType == "playerwin" then
+        weights.player = weights.player + (streakCount * 2.5)
+    elseif streakType == "tie" then
+        weights.tie = weights.tie + streakCount
+    end
+
+    local totalWeight = math.max(weights.banker + weights.player + weights.tie, 1)
+    local bankerPercent = math.floor((weights.banker / totalWeight) * 100 + 0.5)
+    local playerPercent = math.floor((weights.player / totalWeight) * 100 + 0.5)
+    local tiePercent = math.max(0, 100 - bankerPercent - playerPercent)
+
+    local bestKey = "banker"
+    local bestValue = bankerPercent
+
+    if playerPercent > bestValue then
+        bestKey = "player"
+        bestValue = playerPercent
+    end
+
+    if tiePercent > bestValue then
+        bestKey = "tie"
+        bestValue = tiePercent
+    end
+
+    local recommendation = "BANKER"
+    if bestKey == "player" then
+        recommendation = "PLAYER"
+    elseif bestKey == "tie" then
+        recommendation = "TIE"
+    end
+
+    return {
+        Recommendation = recommendation,
+        BankerPercent = bankerPercent,
+        PlayerPercent = playerPercent,
+        TiePercent = tiePercent,
+        StreakType = streakType,
+        StreakCount = streakCount
+    }
+end
+
+-- ===== TABS =====
+local pvpTab = window:CreateTab("PVP", {
+    Group = "MAIN",
+    Icon = "P"
+})
+
+local farmTab = window:CreateTab("Farm", {
+    Group = "MAIN",
+    Icon = "F",
+    Selected = true
+})
+
+local teleportTab = window:CreateTab("Teleport", {
+    Group = "MAIN",
+    Icon = "T"
+})
+
+local activityTab = window:CreateTab("Activity", {
+    Group = "MAIN",
+    Icon = "A"
+})
+
+local carTab = window:CreateTab("Car", {
+    Group = "MAIN",
+    Icon = "C"
+})
+
+local baccaratTab = window:CreateTab("Baccarat", {  -- +++ tab ใหม่ +++
+    Group = "MAIN",
+    Icon = "B"
+})
+
+local settingsTab = window:CreateTab("Settings", {
+    Group = "SETTINGS",
+    Icon = "S"
+})
+
+-- ===== SECTIONS =====
+local targetSection = pvpTab:CreateSection("Targeting", {
+    Column = 1,
+    Order = 10
+})
+
+local targetVisualSection = pvpTab:CreateSection("Visual", {
+    Column = 1,
+    Order = 20
+})
+
+local armorSection = pvpTab:CreateSection("Auto Armor", {
+    Column = 2,
+    Order = 10
+})
+
+local truckSection = farmTab:CreateSection("Truck", {
+    Column = 1,
+    Order = 10
+})
+
+local farmSettingsSection = farmTab:CreateSection("Farm Settings", {
+    Column = 1,
+    Order = 20
+})
+
+local farmControlSection = farmTab:CreateSection("Auto Farm", {
+    Column = 2,
+    Order = 10
+})
+
+local proximitySection = farmTab:CreateSection("Proximity", {
+    Column = 2,
+    Order = 20
+})
+
+local saveTeleportSection = teleportTab:CreateSection("Saved Position", {
+    Column = 1,
+    Order = 10
+})
+
+local destinationSection = teleportTab:CreateSection("Destinations", {
+    Column = 2,
+    Order = 10
+})
+
+local activitySection = activityTab:CreateSection("Event Teleports", {
+    Column = 1,
+    Order = 10
+})
+
+local carWheelSection = carTab:CreateSection("Wheel Size", {
+    Column = 1,
+    Order = 10
+})
+
+local carVisualSection = carTab:CreateSection("Visual", {
+    Column = 1,
+    Order = 20
+})
+
+local carControlSection = carTab:CreateSection("Control", {
+    Column = 2,
+    Order = 10
+})
+
+local carUnlockSection = carTab:CreateSection("Unlock Car", {
+    Column = 2,
+    Order = 20
+})
+
+local carOptionsSection = carTab:CreateSection("Car Options", {
+    Column = 2,
+    Order = 30
+})
+
+local baccaratSection = baccaratTab:CreateSection("Baccarat Predict", {  -- +++ section ใหม่ +++
+    Column = 1,
+    Order = 10
+})
+
+local uiSection = settingsTab:CreateSection("UI", {
+    Column = 1,
+    Order = 10
+})
+
+local settingSection = settingsTab:CreateSection("Setting", {
+    Column = 1,
+    Order = 20
+})
+
+local miscSection = settingsTab:CreateSection("Other", {
+    Column = 2,
+    Order = 10
+})
+
+local playerDropdown = targetSection:AddDropdown("Exclude Player", {
+    Items = GetAllPlayers(),
+    Default = "None",
+    Callback = function(value)
+        Config.ExcludedPlayer = value
+        if Config.TargetingEnabled then
+            ApplyTargeting()
+        end
+    end
+})
+
+targetSection:AddButton("Refresh Player List", {
+    Callback = function()
+        playerDropdown:Refresh(GetAllPlayers(), Config.ExcludedPlayer or "None")
+    end
+})
+
+targetSection:AddTextbox("Hitbox Size (X,Y,Z)", {
+    Default = "20,20,20",
+    Placeholder = "20,20,20",
+    Callback = function(value)
+        local values = {}
+        for token in tostring(value):gmatch("[^,]+") do
+            local number = tonumber(token)
+            if number then
+                table.insert(values, number)
+            end
+        end
+
+        if #values == 3 then
+            Config.Target.Size = Vector3.new(values[1], values[2], values[3])
+            if Config.TargetingEnabled then
+                ApplyTargeting()
+            end
+        elseif uiReady then
+            Notify("ผิดพลาด", "ใช้รูปแบบ X,Y,Z", "error")
+        end
+    end
+})
+
+targetSection:AddTextbox("Refresh Interval (sec)", {
+    Default = "1",
+    Placeholder = "1",
+    Callback = function(value)
+        local number = tonumber(value)
+        if number and number > 0 then
+            Config.Target.RefreshInterval = number
+        end
+    end
+})
+
+HitboxToggle = targetSection:AddToggle("Enable Hitbox Targeting", {
+    Default = false,
+    Callback = function(state)
+        SetTargeting(state)
+    end
+})
+
+targetSection:AddKeybind("Toggle Hitbox Key", {
+    Default = "X",
+    Callback = function()
+        if GUIActive and HitboxToggle then
+            HitboxToggle:Trigger()
+        end
+    end
+})
+
+targetSection:AddButton("Force Update", {
+    Callback = function()
+        if not Config.TargetingEnabled then
+            Notify("คำเตือน", "เปิด toggle ก่อน!", "warning")
+            return
+        end
+
+        local modified, skipped = ApplyTargeting()
+        Notify("อัพเดทแล้ว", ("ปรับ %d | ข้าม %d"):format(modified, skipped), "success", 5)
+    end
+})
+
+targetVisualSection:AddToggle("Enable Highlight", {
+    Default = true,
+    Callback = function(state)
+        Config.Highlight.Enabled = state
+        if Config.TargetingEnabled then
+            ApplyTargeting()
+        end
+    end
+})
+
+targetVisualSection:AddSlider("Highlight Transparency", {
+    Min = 0,
+    Max = 100,
+    Default = 70,
+    Callback = function(value)
+        Config.Highlight.Transparency = value / 100
+        if Config.TargetingEnabled then
+            ApplyTargeting()
+        end
+    end
+})
+
+targetVisualSection:AddColorPicker("Highlight Color", {
+    Default = Color3.fromRGB(0, 255, 255),
+    Callback = function(color)
+        Config.Highlight.Color = color
+        if Config.TargetingEnabled then
+            ApplyTargeting()
+        end
+    end
+})
+
+armorSection:AddTextbox("Armor Slot (1-8)", {
+    Default = "1",
+    Placeholder = "1",
+    Callback = function(value)
+        local number = tonumber(value)
+        if number and number >= 1 and number <= 8 then
+            Config.AutoArmor.KeyNumber = math.floor(number)
+        end
+    end
+})
+
+armorSection:AddToggle("Auto Equip Armor", {
+    Default = false,
+    Callback = function(state)
+        Config.AutoArmor.Enabled = state
+        if state then
+            task.spawn(function()
+                while Config.AutoArmor.Enabled do
+                    CheckArmor()
+                    task.wait(1)
+                end
+            end)
+        end
+    end
+})
+
+local truckDropdown = truckSection:AddDropdown("Select Truck", {
+    Items = {"None"},
+    Default = "None",
+    Callback = function(value)
+        Config.Truck.Selected = value ~= "None" and value or nil
+    end
+})
+
+truckSection:AddButton("Scan My Trucks", {
+    Callback = function()
+        local trucks = ScanPlayerTrucks()
+        if #trucks > 0 then
+            local items = {"None"}
+            for _, truck in ipairs(trucks) do
+                table.insert(items, truck)
+            end
+
+            local defaultTruck = Config.Truck.Selected or trucks[1]
+            truckDropdown:Refresh(items, defaultTruck)
+            Config.Truck.Selected = defaultTruck
+            Notify("พบรถ", ("พบ %d คัน"):format(#trucks), "success")
+        else
+            local all = {"None"}
+            for _, child in ipairs(LocalPlayer:GetChildren()) do
+                if child:IsA("Model") or child:IsA("Folder") then
+                    table.insert(all, child.Name)
+                end
+            end
+            truckDropdown:Refresh(all, "None")
+            Notify("ไม่พบรถ", "ไม่พบรถ", "warning")
+        end
+    end
+})
+
+truckSection:AddToggle("เก็บของหลังรถ", {
+    Default = false,
+    Callback = function(state)
+        SetTruckAutoCollect(state)
+    end
+})
+
+farmSettingsSection:AddDropdown("Farm Mode", {
+    Items = {"Mode 1 - Repeat", "Mode 2 - No Repeat"},
+    Default = "Mode 1 - Repeat",
+    Callback = function(value)
+        Config.Farm.Settings.FarmMode = value == "Mode 1 - Repeat" and 1 or 2
+    end
+})
+
+farmSettingsSection:AddTextbox("Teleport Delay (sec)", {
+    Default = "5",
+    Placeholder = "5",
+    Callback = function(value)
+        local number = tonumber(value)
+        if number and number > 0 then
+            Config.Farm.Settings.TeleportDelay = number
+        end
+    end
+})
+
+farmSettingsSection:AddTextbox("Teleports Before Collect", {
+    Default = "1",
+    Placeholder = "1",
+    Callback = function(value)
+        local number = tonumber(value)
+        if number and number >= 1 then
+            Config.Farm.Settings.TeleportCount = math.floor(number)
+        end
+    end
+})
+
+farmSettingsSection:AddTextbox("Collect Amount", {
+    Default = "5",
+    Placeholder = "5",
+    Callback = function(value)
+        local number = tonumber(value)
+        if number and number >= 1 then
+            Config.Farm.Settings.CollectAmount = math.floor(number)
+        end
+    end
+})
+
+for _, farm in ipairs(farms) do
+    farmToggleRefs[farm.title] = farmControlSection:AddToggle(farm.title, {
+        Default = false,
+        Callback = function(state)
+            farm.data.Enabled = state
+            if state then
+                RunFarm(farm.data, farm.folder, farm.item)
+            end
+        end
     })
 end
 
--- ── ระบบตรวจจับผู้เล่นใกล้เคียง ──
-FarmTab:Section({ Title = "🔍 ตรวจจับผู้เล่น" })
-
-FarmTab:Toggle({
-    Title = "หยุดฟาร์มเมื่อมีคนใกล้",
-    Desc  = "ปิดฟาร์มทุกตัวอัตโนมัติเมื่อมีผู้เล่นเข้าใกล้",
-    Value = false,
+proximitySection:AddToggle("Stop Farm When Players Nearby", {
+    Default = false,
     Callback = function(state)
         Config.Proximity.Enabled = state
         if state then
-            Notify("เปิดตรวจจับ", ("รัศมี %d studs"):format(Config.Proximity.Distance), "eye")
+            Notify("เปิดตรวจจับ", ("รัศมี %d studs"):format(Config.Proximity.Distance), "info")
             task.spawn(function()
                 while Config.Proximity.Enabled do
-                    local me = game.Players.LocalPlayer
-                    local myChar = me.Character
-                    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                    local myCharacter = LocalPlayer.Character
+                    local myHRP = myCharacter and myCharacter:FindFirstChild("HumanoidRootPart")
                     if myHRP then
-                        for _, player in pairs(game.Players:GetPlayers()) do
-                            if player == me then continue end
-                            local theirChar = player.Character
-                            local theirHRP = theirChar and theirChar:FindFirstChild("HumanoidRootPart")
-                            if theirHRP then
-                                local dist = (myHRP.Position - theirHRP.Position).Magnitude
-                                if dist <= Config.Proximity.Distance then
-                                    StopAllFarms(player.Name.." เข้าใกล้! ("..math.floor(dist).." studs)")
-                                    break
+                        for _, player in ipairs(Players:GetPlayers()) do
+                            if player ~= LocalPlayer then
+                                local theirCharacter = player.Character
+                                local theirHRP = theirCharacter and theirCharacter:FindFirstChild("HumanoidRootPart")
+                                if theirHRP then
+                                    local distance = (myHRP.Position - theirHRP.Position).Magnitude
+                                    if distance <= Config.Proximity.Distance then
+                                        StopAllFarms(player.Name .. " เข้าใกล้! (" .. math.floor(distance) .. " studs)")
+                                        break
+                                    end
                                 end
                             end
                         end
@@ -634,280 +1401,546 @@ FarmTab:Toggle({
                 end
             end)
         end
-    end,
+    end
 })
 
-FarmTab:Space()
-
-FarmTab:Slider({
-    Title = "รัศมีตรวจจับ (studs)",
-    Desc  = "ระยะที่ถือว่า 'ใกล้เคียง'",
-    Step  = 5,
-    Value = { Min = 10, Max = 200, Default = 50 },
-    Callback = function(v)
-        Config.Proximity.Distance = v
-    end,
+proximitySection:AddSlider("Detect Radius", {
+    Min = 10,
+    Max = 200,
+    Default = 50,
+    Callback = function(value)
+        Config.Proximity.Distance = value
+    end
 })
 
--- ╔══════════════════╗
--- ║  TAB: เทเลพอต   ║
--- ╚══════════════════╝
+saveTeleportSection:AddButton("Save Current Position", {
+    Callback = function()
+        local character = LocalPlayer.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            Notify("ผิดพลาด", "ไม่พบตัวละคร", "error")
+            return
+        end
 
-TeleportTab:Section({ Title = "📍 เซฟตำแหน่ง" })
-TeleportTab:Button({
-    Title="เซฟตำแหน่งปัจจุบัน", Icon="bookmark",
-    Callback=function()
-        local hrp=game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then Notify("ผิดพลาด","ไม่พบตัวละคร","alert-triangle") return end
-        SavedCF=hrp.CFrame
-        local p=SavedCF.Position
-        Notify("เซฟสำเร็จ",("X:%.1f Y:%.1f Z:%.1f"):format(p.X,p.Y,p.Z),"bookmark",4)
-    end,
+        SavedCF = hrp.CFrame
+        local position = SavedCF.Position
+        Notify("เซฟสำเร็จ", ("X:%.1f Y:%.1f Z:%.1f"):format(position.X, position.Y, position.Z), "success", 4)
+    end
 })
-TeleportTab:Space()
-TeleportTab:Button({
-    Title="วาปกลับตำแหน่งที่เซฟ", Icon="corner-down-left",
-    Callback=function()
-        if not SavedCF then Notify("ผิดพลาด","ยังไม่ได้เซฟ!","alert-triangle") return end
+
+saveTeleportSection:AddButton("Teleport To Saved Position", {
+    Callback = function()
+        if not SavedCF then
+            Notify("ผิดพลาด", "ยังไม่ได้เซฟ!", "error")
+            return
+        end
+
         TpTo(SavedCF)
-        local p=SavedCF.Position
-        Notify("วาปกลับแล้ว",("X:%.1f Y:%.1f Z:%.1f"):format(p.X,p.Y,p.Z),"corner-down-left",4)
-    end,
+        local position = SavedCF.Position
+        Notify("วาปกลับแล้ว", ("X:%.1f Y:%.1f Z:%.1f"):format(position.X, position.Y, position.Z), "success", 4)
+    end
 })
 
-TeleportTab:Section({ Title = "🗺️ จุดหมาย" })
-local Dests = {
-    { t="การาช",    i="car",      cf=CFrame.new(303.565521,66.1486893,-906.82373,0.767768562,6.71885871e-08,-0.640727282,-5.10625604e-08,1,4.36759322e-08,0.640727282,-8.15832679e-10,0.767768562) },
-    { t="เลเบลฟ้า", i="map-pin",  cf=CFrame.new(-900.60968,88.9132462,1224.23682,-0.907460213,-1.95295904e-08,-0.420138031,-9.32648447e-09,1,-2.63393822e-08,0.420138031,-1.99835295e-08,-0.907460213) },
-    { t="สภา",      i="landmark", cf=CFrame.new(5547.8877,683.3078,1496.87927,-0.267395705,1.94510399e-08,0.963586807,5.54390418e-08,1,-4.80172435e-09,-0.963586807,5.21363681e-08,-0.267395705) },
-    { t="เลเบลแดง", i="map-pin",  cf=CFrame.new(6889.5166,285.729034,-2287.85767,-0.0161244199,1.21794734e-08,0.999870002,-4.29730243e-08,1,-1.28740627e-08,-0.999870002,-4.31750244e-08,-0.0161244199) },
-    { t="ปั้มบนสุด", i="fuel",     cf=CFrame.new(7985.23975,264.948853,-781.145386,-0.745238066,-4.59924507e-08,-0.666798472,-1.86272047e-08,1,-4.81566005e-08,0.666798472,-2.3467539e-08,-0.745238066) },
+local destinations = {
+    {title = "Garage", cf = CFrame.new(303.565521, 66.1486893, -906.82373, 0.767768562, 6.71885871e-08, -0.640727282, -5.10625604e-08, 1, 4.36759322e-08, 0.640727282, -8.15832679e-10, 0.767768562)},
+    {title = "Blue Label", cf = CFrame.new(-900.60968, 88.9132462, 1224.23682, -0.907460213, -1.95295904e-08, -0.420138031, -9.32648447e-09, 1, -2.63393822e-08, 0.420138031, -1.99835295e-08, -0.907460213)},
+    {title = "Council", cf = CFrame.new(5547.8877, 683.3078, 1496.87927, -0.267395705, 1.94510399e-08, 0.963586807, 5.54390418e-08, 1, -4.80172435e-09, -0.963586807, 5.21363681e-08, -0.267395705)},
+    {title = "Red Label", cf = CFrame.new(6889.5166, 285.729034, -2287.85767, -0.0161244199, 1.21794734e-08, 0.999870002, -4.29730243e-08, 1, -1.28740627e-08, -0.999870002, -4.31750244e-08, -0.0161244199)},
+    {title = "Top Gas", cf = CFrame.new(7985.23975, 264.948853, -781.145386, -0.745238066, -4.59924507e-08, -0.666798472, -1.86272047e-08, 1, -4.81566005e-08, 0.666798472, -2.3467539e-08, -0.745238066)}
 }
-for k, d in ipairs(Dests) do
-    TeleportTab:Button({
-        Title="วาปไป"..d.t, Icon=d.i,
-        Callback=function() TpTo(d.cf) end,
+
+for _, destination in ipairs(destinations) do
+    destinationSection:AddButton("Teleport " .. destination.title, {
+        Callback = function()
+            TpTo(destination.cf)
+        end
     })
-    if k < #Dests then TeleportTab:Space() end
 end
 
--- ╔══════════════════╗
--- ║  TAB: กิจกรรม   ║
--- ╚══════════════════╝
-
-ActivityTab:Section({ Title = "🎉 วาปไปกิจกรรม" })
-ActivityTab:Button({
-    Title="วาปไปชนะปากัว", Icon="swords",
-    Callback=function()
-        TpTo(CFrame.new(-694.090698,188.338425,571.563782,0.0845197961,-4.88692606e-08,-0.996421814,3.67553454e-08,1,-4.59270417e-08,0.996421814,-3.27420828e-08,0.0845197961))
-    end,
-})
-ActivityTab:Space()
-ActivityTab:Button({
-    Title="วาปไปลักกี้บอม", Icon="bomb",
-    Callback=function()
-        TpTo(CFrame.new(-391.9711,66.0340271,578.966553,-0.0431948975,-4.21879598e-09,-0.999066651,8.60502336e-09,1,-4.59477745e-09,0.999066651,-8.79546302e-09,-0.0431948975))
-    end,
-})
-
--- ╔══════════════╗
--- ║  TAB: รถยนต์  ║
--- ╚══════════════╝
-
-CarTab:Section({ Title = "🚗 ยกเว้นรถ" })
-local carDD = CarTab:Dropdown({
-    Title="ยกเว้นรถ", Desc="ไม่ขยายยางรถที่เลือก",
-    Values=GetAllCars(), Multi=true, AllowNone=true,
-    Callback=function(v)
-        CarConfig.ExcludedCars=v
-        if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) end
-    end,
-})
-CarTab:Space()
-CarTab:Button({
-    Title="รีเฟรชรายชื่อรถ", Icon="refresh-cw",
-    Callback=function() carDD:Refresh(GetAllCars()) end,
-})
-
-CarTab:Section({ Title = "📐 ขนาดยาง" })
-CarTab:Input({
-    Title="ขนาดยาง (X,Y,Z)", Desc="เช่น 10,10,10", Value="10,10,10", Placeholder="10,10,10",
-    Callback=function(v)
-        local vals={}
-        for n in v:gmatch("[^,]+") do local num=tonumber(n) if num then table.insert(vals,num) end end
-        if #vals==3 then
-            CarConfig.WheelSize=Vector3.new(vals[1],vals[2],vals[3])
-            if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) HookWheels(CarConfig.WheelSize) end
-        else Notify("ผิดพลาด","ใช้รูปแบบ X,Y,Z","alert-triangle") end
-    end,
-})
-
--- ==================== CAR ESP ====================
-
-local CarESP = {
-    Enabled = false,
-    Color = Color3.fromRGB(255, 255, 255),
-    BillboardConns = {},
-    Boards = {},
-}
-
-local function ClearCarESP()
-    for _, bb in pairs(CarESP.Boards) do
-        pcall(function() bb:Destroy() end)
+activitySection:AddButton("Teleport Pakua Event", {
+    Callback = function()
+        TpTo(CFrame.new(-694.090698, 188.338425, 571.563782, 0.0845197961, -4.88692606e-08, -0.996421814, 3.67553454e-08, 1, -4.59270417e-08, 0.996421814, -3.27420828e-08, 0.0845197961))
     end
-    CarESP.Boards = {}
-end
+})
 
-local function ApplyCarESP()
-    ClearCarESP()
-    local keepCar = workspace:FindFirstChild("KeepCar")
-    if not keepCar then return end
-    for _, car in pairs(keepCar:GetChildren()) do
-        -- หา BasePart ที่เป็น root ของรถ (PrimaryPart หรือ part แรก)
-        local root = car:IsA("Model") and (car.PrimaryPart or car:FindFirstChildWhichIsA("BasePart"))
-        if not root then
-            -- อาจเป็น Folder/BasePart โดยตรง
-            for _, d in pairs(car:GetDescendants()) do
-                if d:IsA("BasePart") then root = d break end
+activitySection:AddButton("Teleport Lucky Bomb", {
+    Callback = function()
+        TpTo(CFrame.new(-391.9711, 66.0340271, 578.966553, -0.0431948975, -4.21879598e-09, -0.999066651, 8.60502336e-09, 1, -4.59477745e-09, 0.999066651, -8.79546302e-09, -0.0431948975))
+    end
+})
+
+local carDropdown = carWheelSection:AddDropdown("Exclude Car", {
+    Items = GetAllCars(),
+    Default = "None",
+    Callback = function(value)
+        CarConfig.ExcludedCar = value
+        if CarConfig.Enabled then
+            ApplyWheels(CarConfig.WheelSize)
+            HookWheels(CarConfig.WheelSize)
+        end
+    end
+})
+
+carWheelSection:AddButton("Refresh Car List", {
+    Callback = function()
+        carDropdown:Refresh(GetAllCars(), CarConfig.ExcludedCar or "None")
+    end
+})
+
+carWheelSection:AddTextbox("Wheel Size (X,Y,Z)", {
+    Default = "10,10,10",
+    Placeholder = "10,10,10",
+    Callback = function(value)
+        local values = {}
+        for token in tostring(value):gmatch("[^,]+") do
+            local number = tonumber(token)
+            if number then
+                table.insert(values, number)
             end
         end
-        if not root then continue end
 
-        local bb = Instance.new("BillboardGui")
-        bb.Name = "CarESP_" .. car.Name
-        bb.Adornee = root
-        bb.Size = UDim2.new(0, 200, 0, 40)
-        bb.StudsOffset = Vector3.new(0, 5, 0)
-        bb.AlwaysOnTop = true
-        bb.LightInfluence = 0
-        bb.Parent = root
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Text = car.Name
-        label.TextColor3 = CarESP.Color
-        label.TextStrokeTransparency = 0
-        label.TextStrokeColor3 = Color3.new(0, 0, 0)
-        label.TextScaled = true
-        label.Font = Enum.Font.GothamBold
-        label.Parent = bb
-
-        table.insert(CarESP.Boards, bb)
+        if #values == 3 then
+            CarConfig.WheelSize = Vector3.new(values[1], values[2], values[3])
+            if CarConfig.Enabled then
+                ApplyWheels(CarConfig.WheelSize)
+                HookWheels(CarConfig.WheelSize)
+            end
+        elseif uiReady then
+            Notify("ผิดพลาด", "ใช้รูปแบบ X,Y,Z", "error")
+        end
     end
-    return #CarESP.Boards
-end
-
-local function SetCarESP(state)
-    CarESP.Enabled = state
-    if state then
-        local count = ApplyCarESP()
-        Notify("ESP รถ ON", ("แสดงชื่อ %d คัน"):format(count or 0), "eye", 4)
-    else
-        ClearCarESP()
-        Notify("ESP รถ OFF", "ซ่อนชื่อรถแล้ว", "eye-off", 3)
-    end
-end
-
-CarTab:Section({ Title = "👁️ การมองเห็น" })
-
-CarTab:Toggle({
-    Title="ESP ชื่อรถ", Desc="แสดงชื่อรถลอยเหนือคัน", Value=false,
-    Callback=function(state) SetCarESP(state) end,
 })
-CarTab:Space()
-CarTab:Colorpicker({
-    Title="สี ESP ชื่อรถ", Default=Color3.fromRGB(255,255,255),
-    Callback=function(c)
-        CarESP.Color = c
-        -- อัพเดทสีทันทีถ้าเปิดอยู่
+
+carVisualSection:AddToggle("Car Name ESP", {
+    Default = false,
+    Callback = function(state)
+        SetCarESP(state)
+    end
+})
+
+carVisualSection:AddColorPicker("Car ESP Color", {
+    Default = Color3.fromRGB(255, 255, 255),
+    Callback = function(color)
+        CarESP.Color = color
         if CarESP.Enabled then
-            for _, bb in pairs(CarESP.Boards) do
-                local lbl = bb:FindFirstChildOfClass("TextLabel")
-                if lbl then lbl.TextColor3 = c end
+            for _, board in ipairs(CarESP.Boards) do
+                local label = board:FindFirstChildOfClass("TextLabel")
+                if label then
+                    label.TextColor3 = color
+                end
             end
         end
-    end,
+    end
 })
-CarTab:Space()
-CarTab:Button({
-    Title="รีเฟรช ESP ชื่อรถ", Icon="refresh-cw",
-    Callback=function()
-        if not CarESP.Enabled then Notify("คำเตือน","เปิด ESP ก่อน!","alert-triangle") return end
+
+carVisualSection:AddButton("Refresh Car ESP", {
+    Callback = function()
+        if not CarESP.Enabled then
+            Notify("คำเตือน", "เปิด ESP ก่อน!", "warning")
+            return
+        end
+
         local count = ApplyCarESP()
-        Notify("รีเฟรชแล้ว", ("แสดง %d คัน"):format(count or 0), "refresh-cw", 3)
-    end,
+        Notify("รีเฟรชแล้ว", ("แสดง %d คัน"):format(count), "success", 3)
+    end
 })
-CarTab:Space()
 
-CarTab:Toggle({
-    Title="เปิดไฮไลท์ล้อ", Value=true,
-    Callback=function(state)
-        CarConfig.HighlightEnabled=state
-        if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) end
-    end,
+carVisualSection:AddToggle("Wheel Highlight", {
+    Default = true,
+    Callback = function(state)
+        CarConfig.HighlightEnabled = state
+        if CarConfig.Enabled then
+            ApplyWheels(CarConfig.WheelSize)
+        end
+    end
 })
-CarTab:Space()
-CarTab:Colorpicker({
-    Title="สีไฮไลท์ล้อ", Default=Color3.fromRGB(255,165,0),
-    Callback=function(c)
-        CarConfig.HighlightColor=c
-        if CarConfig.Enabled then ApplyWheels(CarConfig.WheelSize) end
-    end,
+
+carVisualSection:AddColorPicker("Wheel Highlight Color", {
+    Default = Color3.fromRGB(255, 165, 0),
+    Callback = function(color)
+        CarConfig.HighlightColor = color
+        if CarConfig.Enabled then
+            ApplyWheels(CarConfig.WheelSize)
+        end
+    end
 })
-CarTab:Space()
-CarTab:Section({ Title = "🔧 ควบคุม" })
-CarTab:Keybind({
-    Title="ปุ่ม Toggle ล้อรถ", Desc="กดเพื่อเปิด/ปิดขยายล้อ", Value="Z",
-    Callback=function(v)
-        local ok,kc=pcall(function() return Enum.KeyCode[v] end)
-        if ok and kc then Keys.Wheel=kc end
-    end,
+
+WheelToggle = carControlSection:AddToggle("Expand Car Wheels", {
+    Default = false,
+    Callback = function(state)
+        SetWheels(state)
+    end
 })
-CarTab:Space()
-local WheelToggle = CarTab:Toggle({
-    Title="เปิดขยายยางรถ", Desc="เปิด=ขยาย | ปิด=รีเซ็ต", Value=false,
-    Callback=function(state) SetWheels(state) end,
+
+carControlSection:AddKeybind("Toggle Wheel Key", {
+    Default = "Z",
+    Callback = function()
+        if GUIActive and WheelToggle then
+            WheelToggle:Trigger()
+        end
+    end
 })
-CarTab:Space()
-CarTab:Button({
-    Title="บังคับอัพเดทยาง", Icon="zap",
-    Callback=function()
-        if not CarConfig.Enabled then Notify("คำเตือน","เปิด toggle ก่อน!","alert-triangle") return end
-        local count=ApplyWheels(CarConfig.WheelSize)
+
+carControlSection:AddButton("Force Update Wheels", {
+    Callback = function()
+        if not CarConfig.Enabled then
+            Notify("คำเตือน", "เปิด toggle ก่อน!", "warning")
+            return
+        end
+
+        local count = ApplyWheels(CarConfig.WheelSize)
         HookWheels(CarConfig.WheelSize)
-        Notify("อัพเดทยางแล้ว", ("ขยาย %d ล้อ"):format(count), "zap", 5)
-    end,
+        Notify("อัพเดทยางแล้ว", ("ขยาย %d ล้อ"):format(count), "success", 5)
+    end
 })
 
--- ╔══════════════════╗
--- ║  TAB: ตั้งค่า    ║
--- ╚══════════════════╝
+carUnlockSection:AddButton("Unlock Nearby Cars", {
+    Callback = function()
+        local keepCar = workspace:FindFirstChild("KeepCar")
+        local rootPart = GetRootPart()
+        if not keepCar then
+            Notify("Unlock Car", "KeepCar not found", "error", 4)
+            return
+        end
+        if not rootPart then
+            Notify("Unlock Car", "HumanoidRootPart not found", "error", 4)
+            return
+        end
 
-SettingsTab:Section({ Title = "🖥️ การตั้งค่า UI" })
-SettingsTab:Keybind({
-    Title="ปุ่มเปิด/ปิด UI", Desc="กดปุ่มที่ต้องการ", Value="RightControl",
-    Callback=function(v)
-        local ok,kc=pcall(function() return Enum.KeyCode[v] end)
-        if ok and kc then Window:SetToggleKey(kc) end
-    end,
+        local updatedCount = 0
+        local skippedCount = 0
+
+        for _, car in ipairs(keepCar:GetChildren()) do
+            local primaryPart = GetCarPrimaryPart(car)
+            if primaryPart then
+                local distance = (primaryPart.Position - rootPart.Position).Magnitude
+                if distance >= 0 and distance <= 15 then
+                    local driveAttribute = FindAttributeName(car, "drive")
+                    local playerAttribute = FindAttributeName(car, "player")
+
+                    if driveAttribute and playerAttribute then
+                        local okDrive = pcall(function()
+                            car:SetAttribute(driveAttribute, LocalPlayer.Name)
+                        end)
+                        local okPlayer = pcall(function()
+                            car:SetAttribute(playerAttribute, LocalPlayer.Name)
+                        end)
+
+                        if okDrive and okPlayer then
+                            updatedCount += 1
+                        else
+                            skippedCount += 1
+                        end
+                    else
+                        skippedCount += 1
+                    end
+                end
+            end
+        end
+
+        if updatedCount > 0 then
+            Notify("Unlock Car", ("Unlocked %d car(s) | skipped %d"):format(updatedCount, skippedCount), "success", 4)
+        else
+            Notify("Unlock Car", "No nearby cars found in range 0-15 or missing drive/player attributes", "warning", 4)
+        end
+    end
 })
 
-SettingsTab:Section({ Title = "⚠️ อื่นๆ" })
-SettingsTab:Button({
-    Title="ปิด GUI", Icon="x-circle",
-    Callback=function()
-        local dialog=Window:Dialog({
-            Icon="alert-triangle", Title="ยืนยันการปิด",
-            Content="ต้องการปิด God Weapon จริงหรือไม่?",
-            Buttons={
-                { Title="ปิดเลย", Icon="x", Variant="Primary",
-                  Callback=function() GUIActive=false Window:Destroy() end },
-                { Title="ยกเลิก", Icon="arrow-left", Variant="Tertiary", Callback=function() end },
-            },
-        })
-        dialog:Show()
-    end,
+-- Car Options
+local appliedCarStatsEnabled = false
+local appliedCarStatsTarget = nil
+local appliedCarStatsOriginal = {
+    MaxSpeed = nil,
+    DrivingTorque = nil
+}
+local desiredCarMaxSpeed = ""
+local desiredCarAcceleration = ""
+
+local function GetNearestKeepCar()
+    local keepCarFolder = workspace:FindFirstChild("KeepCar")
+    local rootPart = GetRootPart()
+    if not keepCarFolder or not rootPart then
+        return nil
+    end
+    local nearestCar = nil
+    local nearestDistance = math.huge
+    for _, car in ipairs(keepCarFolder:GetChildren()) do
+        local primaryPart = GetCarPrimaryPart(car)
+        if primaryPart then
+            local distance = (primaryPart.Position - rootPart.Position).Magnitude
+            if distance < nearestDistance then
+                nearestDistance = distance
+                nearestCar = car
+            end
+        end
+    end
+    return nearestCar
+end
+
+local function ApplyCarStatValues(targetCar)
+    if not targetCar then return false, "No target car" end
+    local maxSpeedAttribute = FindAttributeName(targetCar, "MaxSpeed")
+    local drivingTorqueAttribute = FindAttributeName(targetCar, "DrivingTorque")
+    if not maxSpeedAttribute or not drivingTorqueAttribute then
+        return false, "Missing MaxSpeed or DrivingTorque attribute"
+    end
+    local maxSpeedValue = tonumber(desiredCarMaxSpeed)
+    local accelerationValue = tonumber(desiredCarAcceleration)
+    if not maxSpeedValue or not accelerationValue then
+        return false, "Invalid Max Speed or Acceleration value"
+    end
+    local ok = pcall(function()
+        targetCar:SetAttribute(maxSpeedAttribute, maxSpeedValue)
+        targetCar:SetAttribute(drivingTorqueAttribute, accelerationValue)
+    end)
+    return ok, ok and nil or "Unable to update car attributes"
+end
+
+local function RestoreCarStatValues()
+    if not appliedCarStatsTarget or not appliedCarStatsTarget.Parent then
+        appliedCarStatsTarget = nil
+        appliedCarStatsOriginal.MaxSpeed = nil
+        appliedCarStatsOriginal.DrivingTorque = nil
+        return false, "Target car was removed"
+    end
+    local maxSpeedAttribute = FindAttributeName(appliedCarStatsTarget, "MaxSpeed")
+    local drivingTorqueAttribute = FindAttributeName(appliedCarStatsTarget, "DrivingTorque")
+    if not maxSpeedAttribute or not drivingTorqueAttribute then
+        return false, "Missing MaxSpeed or DrivingTorque attribute"
+    end
+    local ok = pcall(function()
+        appliedCarStatsTarget:SetAttribute(maxSpeedAttribute, appliedCarStatsOriginal.MaxSpeed)
+        appliedCarStatsTarget:SetAttribute(drivingTorqueAttribute, appliedCarStatsOriginal.DrivingTorque)
+    end)
+    if ok then
+        appliedCarStatsTarget = nil
+        appliedCarStatsOriginal.MaxSpeed = nil
+        appliedCarStatsOriginal.DrivingTorque = nil
+    end
+    return ok, ok and nil or "Unable to restore car attributes"
+end
+
+carOptionsSection:AddTextbox("Max Speed", {
+    Default = "",
+    Placeholder = "Enter max speed",
+    Callback = function(value)
+        desiredCarMaxSpeed = value
+        if appliedCarStatsEnabled and appliedCarStatsTarget then
+            ApplyCarStatValues(appliedCarStatsTarget)
+        end
+    end
 })
 
-print("[GodWeapon v2.0] โหลดสำเร็จ")
+carOptionsSection:AddTextbox("Acceleration", {
+    Default = "",
+    Placeholder = "Enter acceleration",
+    Callback = function(value)
+        desiredCarAcceleration = value
+        if appliedCarStatsEnabled and appliedCarStatsTarget then
+            ApplyCarStatValues(appliedCarStatsTarget)
+        end
+    end
+})
+
+carOptionsSection:AddToggle("Apply Car Stats", {
+    Default = false,
+    Callback = function(state)
+        appliedCarStatsEnabled = state
+        local ok = true
+        local message = nil
+        if state then
+            local targetCar = GetNearestKeepCar()
+            if not targetCar then
+                ok = false
+                message = "No nearby car found in KeepCar"
+                appliedCarStatsEnabled = false
+            else
+                local maxSpeedAttribute = FindAttributeName(targetCar, "MaxSpeed")
+                local drivingTorqueAttribute = FindAttributeName(targetCar, "DrivingTorque")
+                if not maxSpeedAttribute or not drivingTorqueAttribute then
+                    ok = false
+                    message = "Missing MaxSpeed or DrivingTorque attribute"
+                    appliedCarStatsEnabled = false
+                else
+                    appliedCarStatsTarget = targetCar
+                    appliedCarStatsOriginal.MaxSpeed = targetCar:GetAttribute(maxSpeedAttribute)
+                    appliedCarStatsOriginal.DrivingTorque = targetCar:GetAttribute(drivingTorqueAttribute)
+                    ok, message = ApplyCarStatValues(targetCar)
+                    if not ok then
+                        appliedCarStatsEnabled = false
+                        appliedCarStatsTarget = nil
+                        appliedCarStatsOriginal.MaxSpeed = nil
+                        appliedCarStatsOriginal.DrivingTorque = nil
+                    end
+                end
+            end
+        else
+            ok, message = RestoreCarStatValues()
+        end
+        if not uiReady then return end
+        Notify(
+            "Car Options",
+            ok and (state and "Applied car stats to nearest car" or "Restored original car stats")
+               or (message or "Unable to update car stats"),
+            ok and "success" or "error",
+            2
+        )
+    end
+})
+
+-- ===== Baccarat Section UI =====
+baccaratSection:AddButton("Predict", {
+    Callback = function()
+        local _, remote = getBaccaratSource()
+        if not remote then
+            Notify("Baccarat", "GameZone baccarat source not found", "error", 4)
+            return
+        end
+
+        local history = decodeBaccaratHistory(remote)
+        local result = predictBaccarat(history)
+
+        local latest = {}
+        local startIndex = math.max(1, #history - 9)
+        for i = startIndex, #history do
+            table.insert(latest, formatBaccaratResult(history[i]))
+        end
+
+        local latestStr = #latest > 0 and table.concat(latest, " ") or "-"
+        local streakStr = (result.StreakType or "-") .. " x" .. (result.StreakCount or 0)
+
+        Notify(
+            "Recommend: " .. result.Recommendation,
+            "B:" .. result.BankerPercent .. "% P:" .. result.PlayerPercent .. "% T:" .. result.TiePercent .. "%\nStreak: " .. streakStr .. "\nLatest: " .. latestStr,
+            "info",
+            8
+        )
+    end
+})
+
+-- ===== SETTINGS =====
+uiToggleKeybind = uiSection:AddKeybind("Toggle UI Key", {
+    Default = "RightControl",
+    Callback = function(keyCode)
+        window.ToggleKeyCode = keyCode
+        if not uiReady then
+            return
+        end
+
+        Notify("UI Setting", "GUI toggle key updated", "success", 2)
+    end
+})
+
+settingSection:AddToggle("Show FPS/PING", {
+    Default = false,
+    Callback = function(state)
+        if state then
+            window:OpenStatsOverlay({
+                Title = "Performance"
+            })
+        else
+            window:CloseStatsOverlay()
+        end
+
+        if uiReady then
+            Notify("Setting", state and "FPS/PING enabled" or "FPS/PING disabled", state and "success" or "warning", 2)
+        end
+    end
+})
+
+settingSection:AddToggle("Show Keybinds", {
+    Default = false,
+    Callback = function(state)
+        if state then
+            window:OpenKeybinds({
+                Title = "Keybinds"
+            })
+        else
+            window:CloseKeybinds()
+        end
+
+        if uiReady then
+            Notify("Setting", state and "Keybind display enabled" or "Keybind display disabled", state and "success" or "warning", 2)
+        end
+    end
+})
+
+miscSection:AddButton("Close GUI", {
+    Callback = function()
+        GUIActive = false
+        Config.TargetingEnabled = false
+        Config.AutoArmor.Enabled = false
+        Config.Proximity.Enabled = false
+        Config.Truck.AutoCollectEnabled = false
+        StopAllFarms("GUI closed")
+        ClearConns()
+        ResetWheels()
+        ClearCarESP()
+        window:Destroy()
+    end
+})
+
+Players.PlayerAdded:Connect(function()
+    if playerDropdown then
+        playerDropdown:Refresh(GetAllPlayers(), Config.ExcludedPlayer or "None")
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if Config.ExcludedPlayer == player.Name then
+        Config.ExcludedPlayer = "None"
+    end
+
+    if playerDropdown then
+        playerDropdown:Refresh(GetAllPlayers(), Config.ExcludedPlayer or "None")
+    end
+end)
+
+local keepCar = workspace:FindFirstChild("KeepCar")
+if keepCar then
+    keepCar.ChildAdded:Connect(function()
+        if carDropdown then
+            carDropdown:Refresh(GetAllCars(), CarConfig.ExcludedCar or "None")
+        end
+        if CarESP.Enabled then
+            ApplyCarESP()
+        end
+    end)
+
+    keepCar.ChildRemoved:Connect(function(removedCar)
+        if CarConfig.ExcludedCar == removedCar.Name then
+            CarConfig.ExcludedCar = "None"
+        end
+
+        if carDropdown then
+            carDropdown:Refresh(GetAllCars(), CarConfig.ExcludedCar or "None")
+        end
+        if CarESP.Enabled then
+            ApplyCarESP()
+        end
+    end)
+end
+
+UserInputService.WindowFocusReleased:Connect(function()
+    if Config.TargetingEnabled then
+        ApplyTargeting()
+    end
+end)
+
+task.spawn(function()
+    local lastKeyCode = nil
+    while GUIActive and window and window.ScreenGui do
+        if uiToggleKeybind and uiToggleKeybind.GetKeybind then
+            local current = uiToggleKeybind:GetKeybind()
+            if current ~= lastKeyCode then
+                window.ToggleKeyCode = current
+                lastKeyCode = current
+            end
+        end
+        task.wait(0.2)
+    end
+end)
+
+uiReady = true
+Notify("Vertex Hub", "God Weapon loaded successfully.", "success", 3)
+print("[GodWeapon v2.0] Loaded with VertexUI")
