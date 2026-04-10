@@ -1,2023 +1,3888 @@
---[[
-    Pulse UI Library — macOS Light Edition
-    White / Light Grey · Compact 750×480 · Clean
-]]
+local UI_URL = "https://raw.githubusercontent.com/patdanai-t/VertexUI/refs/heads/main/VertexUI.lua?t="
 
-local TweenService      = game:GetService("TweenService")
-local UserInputService  = game:GetService("UserInputService")
-local Players           = game:GetService("Players")
-local Workspace         = game:GetService("Workspace")
-local TextService       = game:GetService("TextService")
+local Vertex = loadstring(game:HttpGet(UI_URL .. tostring(os.time())))()
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
+local SELL_WEBHOOK_URL =
+    "https://discord.com/api/webhooks/1492130932495487119/OXLUARo3KEDEgPuKASPBiZyK5eJs9oniYYfIrty1_G-QM5_n74_vdxJyEnf-_qWaNSFc"
 
-local Pulse   = {} ; Pulse.__index   = Pulse
-local Window  = {} ; Window.__index  = Window
-local Tab     = {} ; Tab.__index     = Tab
-local Section = {} ; Section.__index = Section
+local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
 
--- ============================================================
--- THEME — macOS Light
--- ============================================================
-local Theme = {
-    -- พื้นหลัง
-    Background  = Color3.fromRGB(246, 246, 248),   -- เทาขาวอ่อนมาก
-    Surface     = Color3.fromRGB(255, 255, 255),   -- ขาวสะอาด
-    Surface2    = Color3.fromRGB(240, 240, 243),   -- hover / input
-    Sidebar     = Color3.fromRGB(250, 250, 252),   -- sidebar ขาวอมเทา
-    Topbar      = Color3.fromRGB(255, 255, 255),
-    -- เส้นขอบ
-    Outline     = Color3.fromRGB(220, 220, 226),   -- border เบามาก
-    OutlineHard = Color3.fromRGB(200, 200, 208),
-    -- ตัวอักษร
-    Text        = Color3.fromRGB(28,  28,  32),    -- เกือบดำ
-    Subtext     = Color3.fromRGB(140, 140, 152),   -- เทากลาง
-    Muted       = Color3.fromRGB(180, 180, 190),   -- เทาอ่อน
-    -- Accent (macOS blue)
-    Accent      = Color3.fromRGB(0,   122, 255),   -- iOS/macOS Blue
-    AccentLight = Color3.fromRGB(229, 242, 255),   -- blue wash
-    AccentDark  = Color3.fromRGB(0,    90, 200),
-    -- Traffic lights
-    CloseColor  = Color3.fromRGB(255,  96,  89),
-    MinColor    = Color3.fromRGB(255, 189,  46),
-    MaxColor    = Color3.fromRGB( 40, 200,  64),
-    -- Utils
-    White       = Color3.fromRGB(255, 255, 255),
-    Black       = Color3.fromRGB(0,   0,   0),
-    Success     = Color3.fromRGB( 52, 199,  89),
-    Error       = Color3.fromRGB(255,  59,  48),
-}
+local window = Vertex:CreateWindow({
+    Name = "GodWeapon",
+    Title = "Vertex Hub",
+    SecondaryBadge = "Beady City",
+    Version = "0.1.0 Demo",
+    ToggleKey = "Insert",
+    ConfigFolder = "Vertex",
+    LoadingDuration = 1.6
+})
 
-local FontFaceValue = Font.new("rbxasset://fonts/families/GothamSSm.json")
+local uiReady = false
+local autoEatFoodEnabled = false
+local autoEatFoodThread = nil
 
--- Tween — เบา เร็ว แบบ macOS
-local SnapTween = TweenInfo.new(0.08, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
-local FastTween = TweenInfo.new(0.14, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
-local MidTween  = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-local SlowTween = TweenInfo.new(0.30, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-
--- ============================================================
--- HELPERS
--- ============================================================
-local function tween(obj, info, props)
-    local t = TweenService:Create(obj, info, props) ; t:Play() ; return t
+if window.Backdrop then
+    window.Backdrop.BackgroundTransparency = 0.34
 end
 
-local function create(class, props)
-    local obj = Instance.new(class)
-    for k, v in pairs(props or {}) do obj[k] = v end
-    return obj
+local uiBlur = Lighting:FindFirstChild("GodWeaponBlur")
+if not uiBlur then
+    uiBlur = Instance.new("BlurEffect")
+    uiBlur.Name = "GodWeaponBlur"
+    uiBlur.Parent = Lighting
 end
 
-local function corner(obj, r)
-    create("UICorner", { CornerRadius = UDim.new(0, r or 8), Parent = obj })
-end
+uiBlur.Size = 18
 
-local function stroke(obj, color, alpha, thick)
-    create("UIStroke", {
-        Color           = color or Theme.Outline,
-        Transparency    = alpha or 0,
-        Thickness       = thick or 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent          = obj,
-    })
-end
-
-local function pad(obj, t, b, l, r)
-    create("UIPadding", {
-        PaddingTop    = UDim.new(0, t or 0),
-        PaddingBottom = UDim.new(0, b or 0),
-        PaddingLeft   = UDim.new(0, l or 0),
-        PaddingRight  = UDim.new(0, r or 0),
-        Parent        = obj,
-    })
-end
-
-local function listLayout(obj, spacing, horizontal)
-    return create("UIListLayout", {
-        Padding       = UDim.new(0, spacing or 6),
-        FillDirection = horizontal
-            and Enum.FillDirection.Horizontal
-            or  Enum.FillDirection.Vertical,
-        SortOrder     = Enum.SortOrder.LayoutOrder,
-        Parent        = obj,
-    })
-end
-
-local function safeCall(fn, ...)
-    if typeof(fn) ~= "function" then return end
-    local ok, err = pcall(fn, ...) ; if not ok then warn("[Pulse]", err) end
-end
-
--- macOS-style shadow: subtle, very soft
-local function macShadow(parent)
-    local s = create("Frame", {
-        Name                   = "Shadow",
-        BackgroundColor3       = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.88,
-        BorderSizePixel        = 0,
-        Size                   = UDim2.new(1, 12, 1, 12),
-        Position               = UDim2.new(0, -6, 0, -3),
-        ZIndex                 = math.max(parent.ZIndex - 1, 0),
-        Parent                 = parent,
-    })
-    corner(s, 18)
-    return s
-end
-
--- ripple (ใช้สีฟ้า แต่โปร่งใสมาก)
-local function ripple(button)
-    local clip = create("Frame", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.fromScale(1, 1),
-        ClipsDescendants       = true,
-        Parent                 = button,
-    })
-    corner(clip, 8)
-    button.MouseButton1Down:Connect(function(x, y)
-        local c = create("Frame", {
-            AnchorPoint            = Vector2.new(0.5, 0.5),
-            Position               = UDim2.fromOffset(
-                x - button.AbsolutePosition.X,
-                y - button.AbsolutePosition.Y
-            ),
-            Size                   = UDim2.fromOffset(0, 0),
-            BackgroundColor3       = Theme.Accent,
-            BackgroundTransparency = 0.88,
-            BorderSizePixel        = 0,
-            Parent                 = clip,
-        })
-        corner(c, 999)
-        local goal = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 1.6
-        tween(c, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size                   = UDim2.fromOffset(goal, goal),
-            BackgroundTransparency = 1,
-        })
-        task.delay(0.35, function() if c.Parent then c:Destroy() end end)
-    end)
-end
-
--- themed scrollbar
-local function themedScrollbar(scroll, parent, pos, sz)
-    scroll.ScrollBarThickness = 0
-    local track = create("Frame", {
-        BackgroundColor3 = Theme.Outline,
-        BorderSizePixel  = 0,
-        Position         = pos,
-        Size             = sz,
-        ZIndex           = 6,
-        Parent           = parent,
-    })
-    corner(track, 999)
-    local thumb = create("Frame", {
-        BackgroundColor3 = Theme.Muted,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1, 0, 0.2, 0),
-        ZIndex           = 7,
-        Parent           = track,
-    })
-    corner(thumb, 999)
-    local function update()
-        local cY = scroll.AbsoluteCanvasSize.Y
-        local wY = scroll.AbsoluteWindowSize.Y
-        if cY <= 0 or wY <= 0 or cY <= wY + 2 then track.Visible = false ; return end
-        track.Visible = scroll.Visible
-        local ratio  = math.clamp(wY / cY, 0.08, 1)
-        local tH     = math.max(18, track.AbsoluteSize.Y * ratio)
-        local maxS   = math.max(cY - wY, 1)
-        local prog   = math.clamp(scroll.CanvasPosition.Y / maxS, 0, 1)
-        local travel = math.max(track.AbsoluteSize.Y - tH, 0)
-        thumb.Size     = UDim2.new(1, 0, 0, tH)
-        thumb.Position = UDim2.new(0, 0, 0, travel * prog)
+local function setBackdropEffects(visible)
+    if window.Backdrop then
+        window.Backdrop.BackgroundTransparency = visible and 0.34 or 1
     end
-    scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(update)
-    scroll:GetPropertyChangedSignal("CanvasSize"):Connect(update)
-    scroll:GetPropertyChangedSignal("Visible"):Connect(update)
-    scroll:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(update)
-    parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
-    task.defer(update)
-    return track, thumb, update
+
+    if uiBlur and uiBlur.Parent then
+        uiBlur.Size = visible and 18 or 0
+    end
 end
 
-local function makeDraggable(handle, target)
-    local drag, ds, sp = false, nil, nil
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        drag = true ; ds = input.Position ; sp = target.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then drag = false end
-        end)
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if not drag or input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        local d = input.Position - ds
-        target.Position = UDim2.new(sp.X.Scale, sp.X.Offset + d.X, sp.Y.Scale, sp.Y.Offset + d.Y)
-    end)
+setBackdropEffects(true)
+
+local originalToggleMinimize = window.ToggleMinimize
+function window:ToggleMinimize()
+    originalToggleMinimize(self)
+    setBackdropEffects(not self.IsMinimized)
 end
 
--- ============================================================
--- SYNTAX HIGHLIGHT (blue palette)
--- ============================================================
-local LuaKeywords = {
-    ["and"]=true,["break"]=true,["do"]=true,["else"]=true,["elseif"]=true,
-    ["end"]=true,["false"]=true,["for"]=true,["function"]=true,["if"]=true,
-    ["in"]=true,["local"]=true,["nil"]=true,["not"]=true,["or"]=true,
-    ["repeat"]=true,["return"]=true,["then"]=true,["true"]=true,["until"]=true,
-    ["while"]=true,
-}
-local SyntaxColors = {
-    keyword = "#007aff",
-    string  = "#30a852",
-    number  = "#e07c00",
-    comment = "#aaaaaa",
-    func    = "#0055cc",
-    roblox  = "#0055cc",
-    normal  = "#1c1c20",
-}
-local RobloxIds = {
-    ["self"]=true,["Enum"]=true,["Instance"]=true,["game"]=true,
-    ["workspace"]=true,["script"]=true,["math"]=true,["table"]=true,
-    ["string"]=true,["Color3"]=true,["Vector2"]=true,["Vector3"]=true,
-    ["UDim2"]=true,["CFrame"]=true,["TweenService"]=true,["Players"]=true,
-    ["Workspace"]=true,["ReplicatedStorage"]=true,["RunService"]=true,
-    ["UserInputService"]=true,["TextService"]=true,["HttpService"]=true,
-}
-local function richEsc(t)
-    return (t:gsub("&","&amp;"):gsub("<","&lt;"):gsub(">","&gt;"))
+local originalDestroy = window.Destroy
+function window:Destroy()
+    autoEatFoodEnabled = false
+    if baccaratOverlayConnection then
+        baccaratOverlayConnection:Disconnect()
+        baccaratOverlayConnection = nil
+    end
+    if baccaratOverlayState and baccaratOverlayState.Root and baccaratOverlayState.Root.Parent then
+        baccaratOverlayState.Root:Destroy()
+        baccaratOverlayState = nil
+    end
+    if uiBlur and uiBlur.Parent then
+        uiBlur:Destroy()
+    end
+    return originalDestroy(self)
 end
-local function col(text, color)
-    return ('<font color="%s">%s</font>'):format(color, richEsc(text))
+
+local farmTab = window:CreateTab("Farm", {
+    Icon = "rbxassetid://13321880274",
+    Group = "AUTOMATIC"
+})
+
+local carTab = window:CreateTab("Car", {
+    Icon = "rbxassetid://13732918720",
+    Group = "AUTOMATIC"
+})
+
+local pvpTab = window:CreateTab("PVP", {
+    Icon = "rbxassetid://15571374043",
+    Group = "PVP"
+})
+
+local settingsTab = window:CreateTab("Setting", {
+    Icon = "rbxassetid://7059346373",
+    Group = "SETTINGS"
+})
+
+local playerSettingsTab = window:CreateTab("Player Setting", {
+    Icon = "rbxassetid://11656483170",
+    Group = "SETTINGS"
+})
+
+local uiSettingSection = settingsTab:CreateSection("UI SETTING", {
+    Column = 1
+})
+
+local configSection = settingsTab:CreateSection("CONFIG", {
+    Column = 2
+})
+
+local consoleSection = settingsTab:CreateSection("CONSOLE", {
+    Column = 1
+})
+
+local playerSection = playerSettingsTab:CreateSection("Player", {
+    Column = 1
+})
+
+local generalSection = playerSettingsTab:CreateSection("GENERAL", {
+    Column = 2
+})
+
+local autoFarmSection = farmTab:CreateSection("Auto Farm", {
+    Column = 1
+})
+
+local autoCollectTruckSection = farmTab:CreateSection("AUTO COLLECT BEHIND TRUCK", {
+    Column = 2
+})
+
+local baccaratSection = farmTab:CreateSection("BACCARAT", {
+    Column = 2
+})
+
+local miniGameSection = farmTab:CreateSection("MINIGAME", {
+    Column = 1
+})
+
+local carSection = carTab:CreateSection("CAR", {
+    Column = 1
+})
+
+local carGeneralSection = carTab:CreateSection("GENERAL", {
+    Column = 2
+})
+
+local carOptionsSection = carTab:CreateSection("CAR OPTIONS", {
+    Column = 2
+})
+
+local weaponPunchSection = pvpTab:CreateSection("WEAPON/PUNCH", {
+    Column = 1
+})
+
+local selectedFarmJob = "None"
+local autoFarmEnabled = false
+local autoFarmThread = nil
+local autoCollectThread = nil
+local autoAmmoBoxThread = nil
+local autoTransformerBoxThread = nil
+local usedFarmTargets = {}
+local currentFarmTarget = nil
+local currentFarmItemName = nil
+local selectedTruckName = "None"
+local selectedTruckPlayerObjectName = nil
+local selectedNearbyCarDisplay = "None"
+local nearbyCarMap = {}
+local noPownChangedCars = {}
+local autoAmmoBoxEnabled = false
+local autoTransformerBoxEnabled = false
+local autoWeaponPunchEnabled = false
+local autoWeaponPunchThread = nil
+local autoFarmPostingInProgress = false
+local pendingSellerItemName = nil
+local baccaratOverlayState = nil
+local baccaratOverlayConnection = nil
+local baccaratHeartbeatAccumulator = 0
+local autoMiniGame1Enabled = true
+local autoMiniGame2Enabled = true
+local appliedCarStatsEnabled = false
+local appliedCarStatsTarget = nil
+local appliedCarStatsOriginal = {
+    MaxSpeed = nil,
+    DrivingTorque = nil
+}
+local desiredCarMaxSpeed = ""
+local desiredCarAcceleration = ""
+local originalPlatformStand = false
+local originalAnchored = false
+local originalWalkSpeed = 16
+local inventoryFullDetected = false
+local getTargetTransform
+local pressEKey
+local invokePostProcess
+
+local function debugAutoFarm(message)
+    print("[GodWeapon AutoFarm] " .. tostring(message))
 end
-local function highlightLua(code)
-    local out, i, len = {}, 1, #code
-    while i <= len do
-        local two = code:sub(i,i+1) ; local ch = code:sub(i,i)
-        if two == "--" then
-            local stop = code:find("\n",i,true) or (len+1)
-            table.insert(out, col(code:sub(i,stop-1), SyntaxColors.comment))
-            if stop <= len then table.insert(out,"\n") end
-            i = stop+1
-        elseif ch=='"' or ch=="'" then
-            local q,j = ch, i+1
-            while j<=len do
-                local c=code:sub(j,j)
-                if c=="\\" then j=j+2 elseif c==q then j=j+1;break else j=j+1 end
-            end
-            table.insert(out, col(code:sub(i,math.min(j-1,len)), SyntaxColors.string))
-            i=j
-        elseif ch:match("[%a_]") then
-            local j=i
-            while j<=len and code:sub(j,j):match("[%w_]") do j=j+1 end
-            local word=code:sub(i,j-1)
-            local nxt=code:match("^%s*(.)",j) or ""
-            local consumed=false
-            if word=="Instance" and code:sub(j,j+3)==".new" then
-                table.insert(out, col("Instance.new", SyntaxColors.func))
-                i=j+4 ; consumed=true
-            elseif LuaKeywords[word] then
-                table.insert(out, col(word, SyntaxColors.keyword))
-            elseif RobloxIds[word] then
-                table.insert(out, col(word, SyntaxColors.roblox))
-            elseif nxt=="(" then
-                table.insert(out, col(word, SyntaxColors.func))
-            else
-                table.insert(out, col(word, SyntaxColors.normal))
-            end
-            if not consumed then i=j end
-        elseif ch:match("%d") then
-            local j=i
-            while j<=len and code:sub(j,j):match("[%d%.]") do j=j+1 end
-            table.insert(out, col(code:sub(i,j-1), SyntaxColors.number))
-            i=j
+
+local function getRootPart()
+    local character = localPlayer and localPlayer.Character
+    if not character then
+        return nil
+    end
+
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getBaccaratSource()
+    local gameZone = playerGui:FindFirstChild("GameZone")
+    if gameZone then
+        local remoteHolder = gameZone:FindFirstChild("remote")
+        local remote = remoteHolder and remoteHolder.Value
+        if remoteHolder and remoteHolder:IsA("ObjectValue") and typeof(remote) == "Instance" then
+            return gameZone, remote
+        end
+    end
+
+    return nil, nil
+end
+
+local function decodeBaccaratHistory(remote)
+    if not remote or not remote.Parent then
+        return {}
+    end
+
+    local historyRaw = remote.Parent:GetAttribute("history")
+    if type(historyRaw) ~= "string" or historyRaw == "" then
+        return {}
+    end
+
+    local httpService = game:GetService("HttpService")
+    local ok, decoded = pcall(function()
+        return httpService:JSONDecode(historyRaw)
+    end)
+
+    if ok and type(decoded) == "table" then
+        return decoded
+    end
+
+    return {}
+end
+
+local function formatBaccaratResult(entry)
+    if entry == "playerwin" then
+        return "P"
+    elseif entry == "bankerwin" then
+        return "B"
+    elseif entry == "tie" then
+        return "T"
+    end
+    return "?"
+end
+
+local function predictBaccarat(history)
+    local weights = {
+        banker = 0,
+        player = 0,
+        tie = 0
+    }
+
+    local recentCount = math.min(#history, 20)
+    for i = 1, recentCount do
+        local entry = history[#history - recentCount + i]
+        local weight = i
+        if entry == "bankerwin" then
+            weights.banker = weights.banker + weight
+        elseif entry == "playerwin" then
+            weights.player = weights.player + weight
+        elseif entry == "tie" then
+            weights.tie = weights.tie + (weight * 0.6)
+        end
+    end
+
+    local streakType = nil
+    local streakCount = 0
+    for i = #history, 1, -1 do
+        local entry = history[i]
+        if not streakType then
+            streakType = entry
+            streakCount = 1
+        elseif entry == streakType then
+            streakCount = streakCount + 1
         else
-            table.insert(out, richEsc(ch)) ; i=i+1
+            break
         end
     end
-    return table.concat(out)
-end
 
--- autocomplete
-local CompletionSets = {
-    game    = {"GetService","Players","Workspace","ReplicatedStorage","Lighting"},
-    enum    = {"KeyCode","UserInputType","EasingStyle","EasingDirection","Font"},
-    instance= {"new"},
-    globals = {"local","function","if","then","end","for","while","return","print","game","Enum","Instance"},
-}
-local function getCompletions(src)
-    local function f(set, prefix)
-        local r={}
-        for _,v in ipairs(set) do
-            if v:lower():find(prefix:lower(),1,true)==1 then r[#r+1]=v end
-        end
-        return r
+    if streakType == "bankerwin" then
+        weights.banker = weights.banker + (streakCount * 2.5)
+    elseif streakType == "playerwin" then
+        weights.player = weights.player + (streakCount * 2.5)
+    elseif streakType == "tie" then
+        weights.tie = weights.tie + streakCount
     end
-    local gp=src:match("game%.([%w_]*)$") ; if gp then return f(CompletionSets.game,gp),"game",gp end
-    local ep=src:match("Enum%.([%w_]*)$") ; if ep then return f(CompletionSets.enum,ep),"enum",ep end
-    local ip=src:match("Instance%.([%w_]*)$") ; if ip then return f(CompletionSets.instance,ip),"instance",ip end
-    local wp=src:match("([%a_][%w_]*)$") ; if wp then return f(CompletionSets.globals,wp),"word",wp end
-    return {},"",""
+
+    local totalWeight = math.max(weights.banker + weights.player + weights.tie, 1)
+    local bankerPercent = math.floor((weights.banker / totalWeight) * 100 + 0.5)
+    local playerPercent = math.floor((weights.player / totalWeight) * 100 + 0.5)
+    local tiePercent = math.max(0, 100 - bankerPercent - playerPercent)
+
+    local bestKey = "banker"
+    local bestValue = bankerPercent
+    if playerPercent > bestValue then
+        bestKey = "player"
+        bestValue = playerPercent
+    end
+    if tiePercent > bestValue then
+        bestKey = "tie"
+        bestValue = tiePercent
+    end
+
+    local recommendation = "BANKER"
+    if bestKey == "player" then
+        recommendation = "PLAYER"
+    elseif bestKey == "tie" then
+        recommendation = "TIE"
+    end
+
+    return {
+        Recommendation = recommendation,
+        BankerPercent = bankerPercent,
+        PlayerPercent = playerPercent,
+        TiePercent = tiePercent,
+        StreakType = streakType,
+        StreakCount = streakCount
+    }
 end
 
--- ============================================================
--- TOOLTIP
--- ============================================================
-function Pulse:_createTooltip()
-    local tip = create("TextLabel", {
-        Name                   = "Tooltip",
-        BackgroundColor3       = Color3.fromRGB(50, 50, 54),
-        BackgroundTransparency = 1,
-        BorderSizePixel        = 0,
-        TextColor3             = Color3.fromRGB(255, 255, 255),
-        FontFace               = FontFaceValue,
-        TextSize               = 11,
-        TextWrapped            = true,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        TextYAlignment         = Enum.TextYAlignment.Center,
-        AutomaticSize          = Enum.AutomaticSize.XY,
-        Visible                = false,
-        ZIndex                 = 50,
-        Parent                 = self.ScreenGui,
-    })
-    pad(tip, 5, 5, 8, 8)
-    corner(tip, 6)
-    self.Tooltip = tip
-    UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType==Enum.UserInputType.MouseMovement and tip.Visible then
-            tip.Position = UDim2.fromOffset(input.Position.X+14, input.Position.Y+14)
+local function ensureBaccaratOverlay()
+    if baccaratOverlayState and baccaratOverlayState.Root and baccaratOverlayState.Root.Parent then
+        return baccaratOverlayState
+    end
+
+    local root = Instance.new("Frame")
+    root.Name = "BaccaratOverlay"
+    root.AnchorPoint = Vector2.new(1, 0.5)
+    root.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
+    root.BorderSizePixel = 0
+    root.Position = UDim2.new(1, -24, 0.5, 0)
+    root.Size = UDim2.fromOffset(350, 252)
+    root.Visible = false
+    root.Parent = window.ScreenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 14)
+    corner.Parent = root
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(58, 62, 76)
+    stroke.Transparency = 0.18
+    stroke.Parent = root
+
+    local headerBar = Instance.new("Frame")
+    headerBar.BackgroundColor3 = Color3.fromRGB(17, 19, 27)
+    headerBar.BorderSizePixel = 0
+    headerBar.Size = UDim2.new(1, 0, 0, 46)
+    headerBar.Parent = root
+
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 14)
+    headerCorner.Parent = headerBar
+
+    local headerMask = Instance.new("Frame")
+    headerMask.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
+    headerMask.BorderSizePixel = 0
+    headerMask.Position = UDim2.new(0, 0, 1, -14)
+    headerMask.Size = UDim2.new(1, 0, 0, 14)
+    headerMask.Parent = headerBar
+
+    local accent = Instance.new("Frame")
+    accent.BackgroundColor3 = Color3.fromRGB(19, 232, 119)
+    accent.BorderSizePixel = 0
+    accent.Position = UDim2.new(0, 14, 0, 14)
+    accent.Size = UDim2.fromOffset(6, 18)
+    accent.Parent = headerBar
+
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(1, 0)
+    accentCorner.Parent = accent
+
+    local title = Instance.new("TextLabel")
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0, 28, 0, 10)
+    title.Size = UDim2.new(1, -108, 0, 18)
+    title.Font = Enum.Font.GothamBold
+    title.Text = "Baccarat Reader"
+    title.TextColor3 = Color3.fromRGB(242, 244, 248)
+    title.TextSize = 15
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = headerBar
+
+    local subtitle = Instance.new("TextLabel")
+    subtitle.BackgroundTransparency = 1
+    subtitle.Position = UDim2.new(0, 28, 0, 26)
+    subtitle.Size = UDim2.new(1, -108, 0, 14)
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.Text = "Latest streak and weighted prediction"
+    subtitle.TextColor3 = Color3.fromRGB(150, 154, 166)
+    subtitle.TextSize = 11
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.Parent = headerBar
+
+    local closeButton = Instance.new("TextButton")
+    closeButton.AutoButtonColor = false
+    closeButton.BackgroundColor3 = Color3.fromRGB(47, 145, 255)
+    closeButton.BorderSizePixel = 0
+    closeButton.Position = UDim2.new(1, -78, 0, 10)
+    closeButton.Size = UDim2.fromOffset(64, 24)
+    closeButton.Font = Enum.Font.GothamMedium
+    closeButton.Text = "Close"
+    closeButton.TextColor3 = Color3.fromRGB(10, 16, 24)
+    closeButton.TextSize = 12
+    closeButton.Parent = headerBar
+
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 8)
+    closeCorner.Parent = closeButton
+
+    local recentTitle = Instance.new("TextLabel")
+    recentTitle.BackgroundTransparency = 1
+    recentTitle.Position = UDim2.new(0, 16, 0, 58)
+    recentTitle.Size = UDim2.new(1, -32, 0, 16)
+    recentTitle.Font = Enum.Font.GothamBold
+    recentTitle.Text = "LATEST 10"
+    recentTitle.TextColor3 = Color3.fromRGB(162, 166, 178)
+    recentTitle.TextSize = 11
+    recentTitle.TextXAlignment = Enum.TextXAlignment.Left
+    recentTitle.Parent = root
+
+    local recentFrame = Instance.new("Frame")
+    recentFrame.BackgroundColor3 = Color3.fromRGB(29, 31, 39)
+    recentFrame.BorderSizePixel = 0
+    recentFrame.Position = UDim2.new(0, 14, 0, 78)
+    recentFrame.Size = UDim2.new(1, -28, 0, 34)
+    recentFrame.Parent = root
+
+    local recentCorner = Instance.new("UICorner")
+    recentCorner.CornerRadius = UDim.new(0, 10)
+    recentCorner.Parent = recentFrame
+
+    local recentLabel = Instance.new("TextLabel")
+    recentLabel.BackgroundTransparency = 1
+    recentLabel.Position = UDim2.new(0, 12, 0, 0)
+    recentLabel.Size = UDim2.new(1, -24, 1, 0)
+    recentLabel.Font = Enum.Font.GothamMedium
+    recentLabel.Text = "-"
+    recentLabel.TextColor3 = Color3.fromRGB(220, 222, 228)
+    recentLabel.TextSize = 13
+    recentLabel.TextXAlignment = Enum.TextXAlignment.Left
+    recentLabel.Parent = recentFrame
+
+    local prediction = Instance.new("TextLabel")
+    prediction.BackgroundColor3 = Color3.fromRGB(20, 33, 28)
+    prediction.BorderSizePixel = 0
+    prediction.Position = UDim2.new(0, 14, 0, 124)
+    prediction.Size = UDim2.new(1, -28, 0, 62)
+    prediction.Font = Enum.Font.GothamBold
+    prediction.Text = "Recommend: WAIT"
+    prediction.TextColor3 = Color3.fromRGB(19, 232, 119)
+    prediction.TextSize = 18
+    prediction.TextWrapped = true
+    prediction.Parent = root
+
+    local predictionCorner = Instance.new("UICorner")
+    predictionCorner.CornerRadius = UDim.new(0, 10)
+    predictionCorner.Parent = prediction
+
+    local statsFrame = Instance.new("Frame")
+    statsFrame.BackgroundTransparency = 1
+    statsFrame.Position = UDim2.new(0, 14, 0, 196)
+    statsFrame.Size = UDim2.new(1, -28, 0, 26)
+    statsFrame.Parent = root
+
+    local function makeStatCard(xScale, bgColor, titleText)
+        local card = Instance.new("Frame")
+        card.BackgroundColor3 = bgColor
+        card.BorderSizePixel = 0
+        card.Position = UDim2.new(xScale, 0, 0, 0)
+        card.Size = UDim2.new(0.32, 0, 1, 0)
+        card.Parent = statsFrame
+
+        local cardCorner = Instance.new("UICorner")
+        cardCorner.CornerRadius = UDim.new(0, 8)
+        cardCorner.Parent = card
+
+        local label = Instance.new("TextLabel")
+        label.BackgroundTransparency = 1
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.Font = Enum.Font.GothamBold
+        label.Text = titleText
+        label.TextColor3 = Color3.fromRGB(245, 247, 250)
+        label.TextSize = 12
+        label.Parent = card
+
+        return label
+    end
+
+    local bankerLabel = makeStatCard(0, Color3.fromRGB(130, 22, 32), "B 0%")
+    local playerLabel = makeStatCard(0.34, Color3.fromRGB(18, 56, 140), "P 0%")
+    local tieLabel = makeStatCard(0.68, Color3.fromRGB(42, 110, 32), "T 0%")
+
+    local percentLabel = Instance.new("TextLabel")
+    percentLabel.BackgroundTransparency = 1
+    percentLabel.Position = UDim2.new(0, 14, 0, 226)
+    percentLabel.Size = UDim2.new(1, -28, 0, 16)
+    percentLabel.Font = Enum.Font.GothamMedium
+    percentLabel.Text = "B: 0% | P: 0% | T: 0%"
+    percentLabel.TextColor3 = Color3.fromRGB(220, 222, 228)
+    percentLabel.TextSize = 11
+    percentLabel.TextXAlignment = Enum.TextXAlignment.Left
+    percentLabel.Parent = root
+
+    local streakLabel = Instance.new("TextLabel")
+    streakLabel.BackgroundTransparency = 1
+    streakLabel.Position = UDim2.new(0, 14, 0, 242)
+    streakLabel.Size = UDim2.new(1, -28, 0, 16)
+    streakLabel.Font = Enum.Font.Gotham
+    streakLabel.Text = "Streak: -"
+    streakLabel.TextColor3 = Color3.fromRGB(162, 166, 178)
+    streakLabel.TextSize = 11
+    streakLabel.TextXAlignment = Enum.TextXAlignment.Left
+    streakLabel.Parent = root
+
+    local statusFrame = Instance.new("Frame")
+    statusFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
+    statusFrame.BorderSizePixel = 0
+    statusFrame.Position = UDim2.new(0, 14, 1, -32)
+    statusFrame.Size = UDim2.new(1, -28, 0, 20)
+    statusFrame.Parent = root
+
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, 8)
+    statusCorner.Parent = statusFrame
+
+    local status = Instance.new("TextLabel")
+    status.BackgroundTransparency = 1
+    status.Position = UDim2.new(0, 10, 0, 0)
+    status.Size = UDim2.new(1, -20, 1, 0)
+    status.Font = Enum.Font.Gotham
+    status.Text = "Status: Waiting for baccarat table..."
+    status.TextColor3 = Color3.fromRGB(162, 166, 178)
+    status.TextSize = 11
+    status.TextXAlignment = Enum.TextXAlignment.Left
+    status.Parent = statusFrame
+
+    closeButton.MouseButton1Click:Connect(function()
+        root.Visible = false
+    end)
+
+    baccaratOverlayState = {
+        Root = root,
+        RecentLabel = recentLabel,
+        Prediction = prediction,
+        BankerLabel = bankerLabel,
+        PlayerLabel = playerLabel,
+        TieLabel = tieLabel,
+        PercentLabel = percentLabel,
+        StreakLabel = streakLabel,
+        Status = status
+    }
+
+    return baccaratOverlayState
+end
+
+local function refreshBaccaratOverlay()
+    local state = ensureBaccaratOverlay()
+    local _, remote = getBaccaratSource()
+    if not remote then
+        state.RecentLabel.Text = "-"
+        state.Prediction.Text = "Recommend: WAIT"
+        state.BankerLabel.Text = "B 0%"
+        state.PlayerLabel.Text = "P 0%"
+        state.TieLabel.Text = "T 0%"
+        state.PercentLabel.Text = "B: 0% | P: 0% | T: 0%"
+        state.StreakLabel.Text = "Streak: -"
+        state.Status.Text = "Status: Waiting for baccarat table..."
+        return
+    end
+
+    local history = decodeBaccaratHistory(remote)
+    local latest = {}
+    local startIndex = math.max(1, #history - 9)
+    for i = startIndex, #history do
+        table.insert(latest, formatBaccaratResult(history[i]))
+    end
+
+    local prediction = predictBaccarat(history)
+    state.RecentLabel.Text = #latest > 0 and table.concat(latest, "  ") or "-"
+    state.Prediction.Text = "Recommend: " .. prediction.Recommendation
+    state.BankerLabel.Text = string.format("B %d%%", prediction.BankerPercent)
+    state.PlayerLabel.Text = string.format("P %d%%", prediction.PlayerPercent)
+    state.TieLabel.Text = string.format("T %d%%", prediction.TiePercent)
+    state.PercentLabel.Text = string.format("B: %d%% | P: %d%% | T: %d%%", prediction.BankerPercent,
+        prediction.PlayerPercent, prediction.TiePercent)
+
+    local streakText = "-"
+    if prediction.StreakType == "bankerwin" then
+        streakText = string.format("BANKER x%d", prediction.StreakCount)
+    elseif prediction.StreakType == "playerwin" then
+        streakText = string.format("PLAYER x%d", prediction.StreakCount)
+    elseif prediction.StreakType == "tie" then
+        streakText = string.format("TIE x%d", prediction.StreakCount)
+    end
+    state.StreakLabel.Text = "Streak: " .. streakText
+
+    local stepText = remote.Parent:GetAttribute("ShowStep") or "Unknown"
+    state.Status.Text = "Status: " .. tostring(stepText)
+end
+
+local function getCarPrimaryPart(car)
+    if car:IsA("Model") then
+        return car.PrimaryPart or car:FindFirstChildWhichIsA("BasePart", true)
+    end
+
+    if car:IsA("BasePart") then
+        return car
+    end
+
+    return car:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function getNearbyCars(maxDistance)
+    local keepCarFolder = workspace:FindFirstChild("KeepCar")
+    local rootPart = getRootPart()
+    if not keepCarFolder or not rootPart then
+        return {}
+    end
+
+    local results = {}
+    for _, car in ipairs(keepCarFolder:GetChildren()) do
+        local primaryPart = getCarPrimaryPart(car)
+        if primaryPart then
+            local distance = (primaryPart.Position - rootPart.Position).Magnitude
+            if distance >= 0 and distance <= maxDistance then
+                table.insert(results, {
+                    instance = car,
+                    distance = distance
+                })
+            end
         end
+    end
+
+    table.sort(results, function(a, b)
+        return a.distance < b.distance
     end)
+
+    return results
 end
 
-function Pulse:_bindTooltip(obj, text)
-    if not text or text=="" then return end
-    obj.MouseEnter:Connect(function()
-        self.Tooltip.Text=text ; self.Tooltip.Visible=true
-        self.Tooltip.BackgroundTransparency=1
-        tween(self.Tooltip, SnapTween, {BackgroundTransparency=0.08})
-    end)
-    obj.MouseLeave:Connect(function()
-        tween(self.Tooltip, SnapTween, {BackgroundTransparency=1})
-        task.delay(0.1, function()
-            if self.Tooltip.BackgroundTransparency>=0.98 then self.Tooltip.Visible=false end
+local function getNearestKeepCar()
+    local keepCarFolder = workspace:FindFirstChild("KeepCar")
+    local rootPart = getRootPart()
+    if not keepCarFolder or not rootPart then
+        return nil
+    end
+
+    local nearestCar = nil
+    local nearestDistance = math.huge
+    for _, car in ipairs(keepCarFolder:GetChildren()) do
+        local primaryPart = getCarPrimaryPart(car)
+        if primaryPart then
+            local distance = (primaryPart.Position - rootPart.Position).Magnitude
+            if distance < nearestDistance then
+                nearestDistance = distance
+                nearestCar = car
+            end
+        end
+    end
+
+    return nearestCar
+end
+
+local function getAmmoBoxTargets()
+    local aMain = workspace:FindFirstChild("AMain")
+    if not aMain then
+        return {}
+    end
+
+    local ammoFolder = aMain:FindFirstChild("Ammo")
+    if not ammoFolder then
+        return {}
+    end
+
+    local boxes = {}
+    for _, descendant in ipairs(ammoFolder:GetDescendants()) do
+        if descendant.Name == "Ammo Box" then
+            table.insert(boxes, descendant)
+        end
+    end
+
+    return boxes
+end
+
+local function getTransformerBoxTargets()
+    local transformerFolder = workspace:FindFirstChild("Tranformer Box")
+    if not transformerFolder then
+        return {}
+    end
+
+    local targets = {}
+    for _, descendant in ipairs(transformerFolder:GetDescendants()) do
+        if descendant:FindFirstChildWhichIsA("Attachment", true) then
+            table.insert(targets, descendant)
+        end
+    end
+
+    return targets
+end
+
+local function hasRepairMiniGame()
+    return playerGui:FindFirstChild("MiniGame1", true) ~= nil or playerGui:FindFirstChild("MiniGame2", true) ~= nil
+end
+
+local function collectAmmoBox(box)
+    local rootPart = getRootPart()
+    if not rootPart or not box then
+        return false
+    end
+
+    local targetCFrame, targetSize = getTargetTransform(box)
+    if not targetCFrame then
+        return false
+    end
+
+    local yOffset = targetSize and (targetSize.Y * 0.5 + 3) or 3
+    rootPart.CFrame = targetCFrame * CFrame.new(0, yOffset, 0)
+    task.wait(0.15)
+
+    local prompt = box:FindFirstChildWhichIsA("ProximityPrompt", true)
+    if not prompt then
+        return false
+    end
+
+    if fireproximityprompt then
+        pcall(function()
+            fireproximityprompt(prompt)
         end)
+        return true
+    end
+
+    local ok = pcall(function()
+        prompt:InputHoldBegin()
+        task.wait((prompt.HoldDuration or 0) + 0.15)
+        prompt:InputHoldEnd()
     end)
+
+    return ok
 end
 
--- ============================================================
--- NOTIFICATION
--- ============================================================
-function Pulse:Notify(options)
-    options = options or {}
-    local note = create("Frame", {
-        BackgroundColor3 = Theme.Surface,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1, 0, 0, 58),
-        Parent           = self.NotificationStack,
-    })
-    corner(note, 10)
-    stroke(note, Theme.Outline)
-    -- top border accent
-    create("Frame", {
-        BackgroundColor3 = options.Color or Theme.Accent,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1, 0, 0, 2),
-        Parent           = note,
-    })
-    local body = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(0, 4),
-        Size                   = UDim2.new(1, 0, 1, -4),
-        Parent                 = note,
-    })
-    pad(body, 8, 8, 12, 12)
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1, 0, 0, 14),
-        FontFace               = FontFaceValue,
-        Text                   = options.Title or "Notification",
-        TextColor3             = Theme.Text,
-        TextSize               = 12,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = body,
-    })
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(0, 16),
-        Size                   = UDim2.new(1, 0, 0, 24),
-        FontFace               = FontFaceValue,
-        Text                   = options.Content or "",
-        TextColor3             = Theme.Subtext,
-        TextSize               = 11,
-        TextWrapped            = true,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = body,
-    })
-    note.BackgroundTransparency = 1
-    note.Size = UDim2.new(1,0,0,0)
-    tween(note, MidTween, {BackgroundTransparency=0, Size=UDim2.new(1,0,0,58)})
-    task.delay(options.Duration or 3, function()
-        if not note.Parent then return end
-        tween(note, FastTween, {BackgroundTransparency=1, Size=UDim2.new(1,0,0,0)})
-        task.delay(0.2, function() if note.Parent then note:Destroy() end end)
-    end)
-end
+local function collectTransformerBox(target)
+    local rootPart = getRootPart()
+    if not rootPart or not target then
+        return false
+    end
 
--- ============================================================
--- LOADING — macOS sheet style
--- ============================================================
-function Pulse:_createLoading(title)
-    local overlay = create("Frame", {
-        BackgroundColor3       = Theme.Black,
-        BackgroundTransparency = 0.5,
-        BorderSizePixel        = 0,
-        Size                   = UDim2.fromScale(1,1),
-        ZIndex                 = 100,
-        Parent                 = self.ScreenGui,
-    })
-    local card = create("Frame", {
-        AnchorPoint      = Vector2.new(0.5,0.5),
-        Position         = UDim2.fromScale(0.5,0.5),
-        Size             = UDim2.fromOffset(300, 110),
-        BackgroundColor3 = Theme.Surface,
-        BorderSizePixel  = 0,
-        ZIndex           = 101,
-        Parent           = overlay,
-    })
-    corner(card, 14)
-    stroke(card, Theme.Outline)
-    macShadow(card)
+    local targetCFrame, targetSize = getTargetTransform(target)
+    if not targetCFrame then
+        return false
+    end
 
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(20, 18),
-        Size                   = UDim2.new(1,-40,0,18),
-        FontFace               = FontFaceValue,
-        Text                   = title or "Loading",
-        TextColor3             = Theme.Text,
-        TextSize               = 14,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        ZIndex                 = 102,
-        Parent                 = card,
-    })
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(20, 38),
-        Size                   = UDim2.new(1,-40,0,14),
-        FontFace               = FontFaceValue,
-        Text                   = "Please wait...",
-        TextColor3             = Theme.Subtext,
-        TextSize               = 11,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        ZIndex                 = 102,
-        Parent                 = card,
-    })
-
-    local bar = create("Frame", {
-        BackgroundColor3 = Theme.Outline,
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(20, 66),
-        Size             = UDim2.new(1,-40,0,4),
-        ZIndex           = 102,
-        Parent           = card,
-    })
-    corner(bar, 999)
-    local fill = create("Frame", {
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(0,0,1,0),
-        ZIndex           = 103,
-        Parent           = bar,
-    })
-    corner(fill, 999)
-
-    local pct = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(20, 78),
-        Size                   = UDim2.new(1,-40,0,14),
-        FontFace               = FontFaceValue,
-        Text                   = "0%",
-        TextColor3             = Theme.Muted,
-        TextSize               = 10,
-        TextXAlignment         = Enum.TextXAlignment.Right,
-        ZIndex                 = 102,
-        Parent                 = card,
-    })
-
-    local pv = create("NumberValue", {Value=0, Parent=card})
-    pv:GetPropertyChangedSignal("Value"):Connect(function()
-        local a = math.clamp(pv.Value/100,0,1)
-        fill.Size = UDim2.new(a,0,1,0)
-        pct.Text  = math.floor(pv.Value+0.5).."%"
-    end)
-
-    tween(pv, TweenInfo.new(1.0, Enum.EasingStyle.Sine), {Value=20})   ; task.wait(1.0)
-    tween(pv, TweenInfo.new(1.4, Enum.EasingStyle.Quad),  {Value=72})  ; task.wait(1.4)
-    tween(pv, TweenInfo.new(0.8, Enum.EasingStyle.Quart), {Value=100}) ; task.wait(0.8)
+    local yOffset = targetSize and (targetSize.Y * 0.5 + 3) or 3
+    rootPart.CFrame = targetCFrame * CFrame.new(0, yOffset, 0)
     task.wait(0.2)
-    tween(card, MidTween, {BackgroundTransparency=1})
-    tween(overlay, MidTween, {BackgroundTransparency=1})
-    task.wait(0.25)
-    overlay:Destroy()
-end
 
--- ============================================================
--- Pulse.new
--- ============================================================
-function Pulse.new()
-    local self = setmetatable({}, Pulse)
-    local ex = PlayerGui:FindFirstChild("PulseUILibrary")
-    if ex then ex:Destroy() end
+    local startedMiniGame = false
+    local timeoutAt = tick() + 4
+    local keyHeld = false
 
-    self.ScreenGui = create("ScreenGui", {
-        Name           = "PulseUILibrary",
-        ResetOnSpawn   = false,
-        IgnoreGuiInset = true,
-        ZIndexBehavior = Enum.ZIndexBehavior.Global,
-        Parent         = PlayerGui,
-    })
-    self.NotificationStack = create("Frame", {
-        BackgroundTransparency = 1,
-        AnchorPoint            = Vector2.new(1,1),
-        Position               = UDim2.new(1,-14,1,-14),
-        Size                   = UDim2.fromOffset(280,300),
-        Parent                 = self.ScreenGui,
-    })
-    local nl = listLayout(self.NotificationStack, 6)
-    nl.VerticalAlignment = Enum.VerticalAlignment.Bottom
-    self:_createTooltip()
-    return self
-end
-
-Pulse.Create = Pulse.new
-
--- ============================================================
--- CreateWindow — macOS compact 750×480
--- ============================================================
-function Pulse:CreateWindow(options)
-    options = options or {}
-
-    local window = setmetatable({}, Window)
-    window.Library         = self
-    window.Title           = options.Title or "Dashboard"
-    window.ToggleKey       = options.ToggleKey or Enum.KeyCode.RightControl
-    window.Size            = options.Size or UDim2.fromOffset(750, 480)
-    window.MinSize         = options.MinSize or Vector2.new(620, 400)
-    window.Visible         = true
-    window.Maximized       = false
-    window.RestoreSize     = window.Size
-    window.RestorePosition = UDim2.fromScale(0.5, 0.5)
-    window.Tabs            = {}
-    window.CurrentTab      = nil
-    window.LastSearchMiss  = nil
-
-    self:_createLoading(window.Title)
-
-    -- ROOT
-    local root = create("Frame", {
-        Name             = "MainWindow",
-        AnchorPoint      = Vector2.new(0.5,0.5),
-        Position         = UDim2.fromScale(0.5,0.5),
-        Size             = UDim2.fromOffset(
-            window.Size.X.Offset - 20,
-            window.Size.Y.Offset - 16
-        ),
-        BackgroundColor3 = Theme.Background,
-        BorderSizePixel  = 0,
-        Parent           = self.ScreenGui,
-    })
-    corner(root, 12)
-    stroke(root, Theme.Outline)
-    macShadow(root)
-    window.Root = root
-    create("UISizeConstraint", {MinSize=window.MinSize, Parent=root})
-
-    -- ── TOPBAR ─────────────────────────────────────────────
-    local topbar = create("Frame", {
-        BackgroundColor3 = Theme.Topbar,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1,0,0,44),
-        Parent           = root,
-    })
-    corner(topbar, 12)
-    -- fill bottom corners
-    create("Frame", {
-        BackgroundColor3 = Theme.Topbar,
-        BorderSizePixel  = 0,
-        Position         = UDim2.new(0,0,1,-12),
-        Size             = UDim2.new(1,0,0,12),
-        Parent           = topbar,
-    })
-    -- bottom separator line
-    create("Frame", {
-        BackgroundColor3 = Theme.Outline,
-        BorderSizePixel  = 0,
-        Position         = UDim2.new(0,0,1,-1),
-        Size             = UDim2.new(1,0,0,1),
-        Parent           = topbar,
-    })
-
-    -- traffic lights (macOS style)
-    local tlFrame = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(14, 0),
-        Size                   = UDim2.fromOffset(72, 44),
-        Parent                 = topbar,
-    })
-    local tlLayout = listLayout(tlFrame, 7, true)
-    tlLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-
-    local function trafficLight(color)
-        local btn = create("TextButton", {
-            BackgroundColor3 = color,
-            BorderSizePixel  = 0,
-            Size             = UDim2.fromOffset(13, 13),
-            Text             = "",
-            AutoButtonColor  = false,
-            Parent           = tlFrame,
-        })
-        corner(btn, 999)
-        -- subtle ring
-        stroke(btn, Color3.fromRGB(0,0,0), 0.82, 1)
-        -- hover: brightness down
-        btn.MouseEnter:Connect(function()
-            tween(btn, SnapTween, {BackgroundTransparency=0.2})
-        end)
-        btn.MouseLeave:Connect(function()
-            tween(btn, SnapTween, {BackgroundTransparency=0})
-        end)
-        return btn
-    end
-
-    local closeBtn    = trafficLight(Theme.CloseColor)
-    local minimizeBtn = trafficLight(Theme.MinColor)
-    local maximizeBtn = trafficLight(Theme.MaxColor)
-
-    -- window title (center)
-    local winTitle = create("TextLabel", {
-        BackgroundTransparency = 1,
-        AnchorPoint            = Vector2.new(0.5, 0.5),
-        Position               = UDim2.fromScale(0.5, 0.5),
-        Size                   = UDim2.new(0.4, 0, 1, 0),
-        FontFace               = FontFaceValue,
-        Text                   = window.Title,
-        TextColor3             = Theme.Subtext,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Center,
-        TextTruncate           = Enum.TextTruncate.AtEnd,
-        Parent                 = topbar,
-    })
-
-    -- search (right side)
-    local searchBox = create("TextBox", {
-        ClearTextOnFocus  = false,
-        PlaceholderText   = "⌘ Search",
-        Text              = "",
-        BackgroundColor3  = Theme.Surface2,
-        BorderSizePixel   = 0,
-        AnchorPoint       = Vector2.new(1, 0.5),
-        Position          = UDim2.new(1, -12, 0.5, 0),
-        Size              = UDim2.fromOffset(170, 26),
-        FontFace          = FontFaceValue,
-        TextColor3        = Theme.Text,
-        PlaceholderColor3 = Theme.Muted,
-        TextSize          = 12,
-        Parent            = topbar,
-    })
-    corner(searchBox, 6)
-    stroke(searchBox, Theme.Outline)
-    pad(searchBox, 0, 0, 10, 10)
-
-    -- ── BODY ───────────────────────────────────────────────
-    local body = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(0, 44),
-        Size                   = UDim2.new(1,0,1,-44),
-        Parent                 = root,
-    })
-
-    -- SIDEBAR
-    local sidebar = create("Frame", {
-        BackgroundColor3 = Theme.Sidebar,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(0, 176, 1, 0),
-        Parent           = body,
-    })
-    -- right border
-    create("Frame", {
-        BackgroundColor3 = Theme.Outline,
-        BorderSizePixel  = 0,
-        Position         = UDim2.new(1,-1,0,0),
-        Size             = UDim2.new(0,1,1,0),
-        Parent           = sidebar,
-    })
-    -- bottom-left corner fill
-    create("Frame", {
-        BackgroundColor3 = Theme.Sidebar,
-        BorderSizePixel  = 0,
-        Position         = UDim2.new(0,0,1,-12),
-        Size             = UDim2.new(1,0,0,12),
-        Parent           = sidebar,
-    })
-
-    -- sidebar section label
-    local sidebarHeader = create("Frame", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1,0,0,32),
-        Parent                 = sidebar,
-    })
-    pad(sidebarHeader, 10, 0, 14, 14)
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1,0,0,14),
-        FontFace               = FontFaceValue,
-        Text                   = "VIEWS",
-        TextColor3             = Theme.Muted,
-        TextSize               = 10,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = sidebarHeader,
-    })
-
-    local tabScroll = create("ScrollingFrame", {
-        BackgroundTransparency = 1,
-        BorderSizePixel        = 0,
-        Position               = UDim2.fromOffset(0, 32),
-        Size                   = UDim2.new(1,0,1,-44),
-        CanvasSize             = UDim2.new(),
-        Parent                 = sidebar,
-    })
-    local tabList = create("Frame", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1,0,0,0),
-        AutomaticSize          = Enum.AutomaticSize.Y,
-        Parent                 = tabScroll,
-    })
-    pad(tabList, 2, 2, 8, 8)
-    local tabLayout = listLayout(tabList, 2)
-    tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        tabScroll.CanvasSize = UDim2.fromOffset(0, tabLayout.AbsoluteContentSize.Y+8)
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        keyHeld = true
     end)
-    local _, _, updateSidebarSB = themedScrollbar(
-        tabScroll, sidebar,
-        UDim2.new(1,-8,0,36), UDim2.new(0,4,1,-50)
-    )
 
-    -- CONTENT
-    local contentPanel = create("Frame", {
-        BackgroundColor3 = Theme.Surface,
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(176, 0),
-        Size             = UDim2.new(1,-176,1,0),
-        Parent           = body,
-    })
-    -- bottom-right corner fill
-    create("Frame", {
-        BackgroundColor3 = Theme.Surface,
-        BorderSizePixel  = 0,
-        Position         = UDim2.new(0,0,1,-12),
-        Size             = UDim2.new(1,0,0,12),
-        Parent           = contentPanel,
-    })
-
-    local pageHost = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(14, 12),
-        Size                   = UDim2.new(1,-28,1,-24),
-        ClipsDescendants       = true,
-        Parent                 = contentPanel,
-    })
-
-    window.Sidebar      = sidebar
-    window.TabScroll    = tabScroll
-    window.ContentPanel = contentPanel
-    window.SearchBox    = searchBox
-    window.PageHost     = pageHost
-    window.WinTitle     = winTitle
-
-    local function getVP()
-        local c=Workspace.CurrentCamera
-        return c and c.ViewportSize or Vector2.new(1280,720)
-    end
-    local function maxSize()
-        local v=getVP() ; local m=16
-        return UDim2.fromOffset(
-            math.max(window.MinSize.X, v.X-m*2),
-            math.max(window.MinSize.Y, v.Y-m*2)
-        )
+    while autoTransformerBoxEnabled and tick() < timeoutAt do
+        if hasRepairMiniGame() then
+            startedMiniGame = true
+            break
+        end
+        task.wait(0.05)
     end
 
-    function window:RefreshLayout()
-        local sw = math.min(200, math.max(150, root.AbsoluteSize.X*0.22))
-        searchBox.Size = UDim2.fromOffset(math.floor(sw+0.5), 26)
-        updateSidebarSB()
+    if keyHeld then
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        end)
     end
 
-    makeDraggable(topbar, root)
+    return startedMiniGame
+end
 
-    function window:SetVisible(state)
-        window.Visible = state
-        if state then
-            root.Visible = true
-            root.BackgroundTransparency = 1
-            tween(root, MidTween, {
-                BackgroundTransparency = 0,
-                Size = window.Maximized and maxSize() or window.Size,
-            })
-        else
-            tween(root, MidTween, {
-                BackgroundTransparency = 1,
-                Size = UDim2.fromOffset(root.AbsoluteSize.X-16, root.AbsoluteSize.Y-12),
-            })
-            task.delay(0.22, function() if root.Parent then root.Visible=false end end)
+local miniGameWatcherStarted = false
+local miniGameActive = false
+local miniGameConnections = {}
+
+local function clearMiniGameConnections()
+    for _, connection in ipairs(miniGameConnections) do
+        if connection and connection.Disconnect then
+            connection:Disconnect()
         end
     end
-    function window:ToggleVisible() window:SetVisible(not window.Visible) end
+    table.clear(miniGameConnections)
+end
 
-    function window:SetMaximized(state)
-        if state==window.Maximized then return end
-        if state then
-            window.RestoreSize=UDim2.fromOffset(root.AbsoluteSize.X,root.AbsoluteSize.Y)
-            window.RestorePosition=root.Position
-            window.Maximized=true
-            tween(root, SlowTween, {Position=UDim2.fromScale(0.5,0.5), Size=maxSize()})
-        else
-            window.Maximized=false ; window.Size=window.RestoreSize
-            tween(root, SlowTween, {Position=window.RestorePosition, Size=window.RestoreSize})
-        end
+local function isMiniGameHighlight(color)
+    return color.R > 0.9 and color.G < 0.2 and color.B < 0.2
+end
+
+local function activateGuiButton(button)
+    if not button or not button.Parent then
+        return false
     end
 
-    function window:SelectTab(tab)
-        for _, other in ipairs(window.Tabs) do
-            other.Page.Visible = false
-            tween(other.Button, SnapTween, {
-                BackgroundColor3       = Theme.Sidebar,
-                BackgroundTransparency = 1,
+    local ok = pcall(function()
+        if button.Activate then
+            button:Activate()
+        end
+    end)
+    if ok then
+        return true
+    end
+
+    if firesignal then
+        ok = pcall(function()
+            firesignal(button.MouseButton1Click)
+        end)
+        if ok then
+            return true
+        end
+
+        pcall(function()
+            firesignal(button.Activated)
+        end)
+    end
+
+    local position = button.AbsolutePosition + (button.AbsoluteSize / 2)
+    ok = pcall(function()
+        VirtualInputManager:SendMouseButtonEvent(position.X, position.Y, 0, true, game, 1)
+        task.wait(0.05)
+        VirtualInputManager:SendMouseButtonEvent(position.X, position.Y, 0, false, game, 1)
+    end)
+
+    return ok
+end
+
+local function forcePressMiniGameButton(button)
+    if not button or not button.Parent then
+        return false
+    end
+
+    local pressed = false
+
+    pcall(function()
+        if button.Activate then
+            button:Activate()
+            pressed = true
+        end
+    end)
+
+    if firesignal then
+        pcall(function()
+            firesignal(button.MouseButton1Click)
+            pressed = true
+        end)
+        pcall(function()
+            firesignal(button.Activated)
+            pressed = true
+        end)
+        pcall(function()
+            firesignal(button.InputBegan, {
+                UserInputType = Enum.UserInputType.MouseButton1
             })
-            other.Button.TextLabel.TextColor3 = Theme.Subtext
-            other.Button.IconLabel.TextColor3 = Theme.Muted
-            if other.ScrollbarTrack then other.ScrollbarTrack.Visible=false end
-        end
-        window.CurrentTab = tab
-        tab.Page.Visible  = true
-        tween(tab.Button, SnapTween, {
-            BackgroundColor3       = Theme.AccentLight,
-            BackgroundTransparency = 0,
-        })
-        tab.Button.TextLabel.TextColor3 = Theme.Accent
-        tab.Button.IconLabel.TextColor3 = Theme.Accent
-        if tab.UpdateScrollbar then tab.UpdateScrollbar() end
+        end)
     end
 
-    function window:HighlightItem(item)
-        local t = item.HighlightInstance or item.Instance
-        if not t or not t.Parent then return end
-        if t:IsA("Frame") or t:IsA("TextButton") or t:IsA("TextBox") then
-            local orig = t.BackgroundColor3
-            tween(t, SnapTween, {BackgroundColor3=Theme.AccentLight})
-            task.delay(0.18, function()
-                if t.Parent then tween(t, MidTween, {BackgroundColor3=orig}) end
+    local position = button.AbsolutePosition + (button.AbsoluteSize / 2)
+    pcall(function()
+        VirtualInputManager:SendMouseButtonEvent(position.X, position.Y, 0, true, game, 1)
+        task.wait(0.03)
+        VirtualInputManager:SendMouseButtonEvent(position.X, position.Y, 0, false, game, 1)
+        pressed = true
+    end)
+
+    return pressed
+end
+
+local function areUiObjectsOverlapping(a, b)
+    if not a or not b then
+        return false
+    end
+
+    local aPos = a.AbsolutePosition
+    local aSize = a.AbsoluteSize
+    local bPos = b.AbsolutePosition
+
+    local topDiff = aPos.Y - bPos.Y
+    local bottomDiff = bPos.Y - aPos.Y
+    local leftDiff = aPos.X - bPos.X
+    local rightDiff = bPos.X - aPos.X
+
+    return topDiff < aSize.Y and bottomDiff < aSize.Y and leftDiff < aSize.X and rightDiff < aSize.X
+end
+
+local function isBarInsideDot(bar, dot)
+    if not bar or not dot then
+        return false
+    end
+
+    local barPos = bar.AbsolutePosition
+    local barSize = bar.AbsoluteSize
+    local dotPos = dot.AbsolutePosition
+    local dotSize = dot.AbsoluteSize
+
+    local barCenterX = barPos.X + (barSize.X / 2)
+    local barCenterY = barPos.Y + (barSize.Y / 2)
+
+    return barCenterX >= dotPos.X and barCenterX <= (dotPos.X + dotSize.X) and barCenterY >= dotPos.Y and barCenterY <=
+               (dotPos.Y + dotSize.Y)
+end
+
+function pressEKey()
+    local ok = pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.03)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end)
+
+    return ok
+end
+
+local function holdEKey(duration)
+    local ok = pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(duration or 1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end)
+
+    return ok
+end
+
+local function beginHoldEKey()
+    return pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    end)
+end
+
+local function endHoldEKey()
+    return pcall(function()
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end)
+end
+
+local function pulseEKey()
+    beginHoldEKey()
+    task.wait(0.12)
+    endHoldEKey()
+end
+
+local function solveMiniGame1(gui)
+    if not autoMiniGame1Enabled then
+        return
+    end
+
+    if miniGameActive or not gui or not gui.Parent then
+        return
+    end
+
+    local bg = gui:FindFirstChild("BG")
+    local main = bg and bg:FindFirstChild("Main")
+    local clicker = main and main:FindFirstChild("Clicker")
+    local barBg = bg and bg:FindFirstChild("BarBG")
+    local bar = barBg and barBg:FindFirstChild("Bar")
+    local dot = barBg and barBg:FindFirstChild("Dot")
+    local remoteValue = gui:FindFirstChild("Remote")
+    local keyValue = gui:FindFirstChild("Key")
+    if not bg or not main or not clicker or not barBg or not bar or not dot or not remoteValue or not keyValue then
+        return
+    end
+
+    miniGameActive = true
+    clearMiniGameConnections()
+
+    local solved = false
+    local function finishMiniGame()
+        clearMiniGameConnections()
+        miniGameActive = false
+    end
+
+    local function trySolve()
+        if solved or not gui.Parent then
+            return
+        end
+
+        if isBarInsideDot(bar, dot) then
+            solved = true
+            activateGuiButton(clicker)
+            pressEKey()
+            task.delay(0.2, finishMiniGame)
+        end
+    end
+
+    table.insert(miniGameConnections, RunService.RenderStepped:Connect(function()
+        trySolve()
+    end))
+
+    table.insert(miniGameConnections, gui.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            finishMiniGame()
+        end
+    end))
+end
+
+local function solveMiniGame2(gui)
+    if not autoMiniGame2Enabled then
+        return
+    end
+
+    if miniGameActive or not gui or not gui.Parent then
+        return
+    end
+
+    local frame = gui:FindFirstChild("Frame")
+    local textLabel = gui:FindFirstChild("TextLabel")
+    local remoteValue = gui:FindFirstChild("Remote")
+    local keyValue = gui:FindFirstChild("Key")
+    if not frame or not textLabel or not remoteValue or not keyValue then
+        return
+    end
+
+    local remote = remoteValue.Value
+    local key = keyValue.Value
+    if typeof(remote) ~= "Instance" then
+        return
+    end
+
+    miniGameActive = true
+    clearMiniGameConnections()
+
+    local function finishMiniGame()
+        clearMiniGameConnections()
+        miniGameActive = false
+    end
+
+    task.spawn(function()
+        task.wait(7.65)
+        if gui.Parent and miniGameActive then
+            pcall(function()
+                remote:FireServer(true, key)
+            end)
+        end
+        task.wait(0.2)
+        finishMiniGame()
+    end)
+
+    table.insert(miniGameConnections, gui.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            finishMiniGame()
+        end
+    end))
+end
+
+local function startMiniGameWatcher()
+    if miniGameWatcherStarted then
+        return
+    end
+    miniGameWatcherStarted = true
+
+    for _, descendant in ipairs(playerGui:GetDescendants()) do
+        if descendant.Name == "MiniGame2" then
+            task.defer(function()
+                solveMiniGame2(descendant)
+            end)
+        elseif descendant.Name == "MiniGame1" then
+            task.defer(function()
+                solveMiniGame1(descendant)
             end)
         end
     end
 
-    function window:FocusItem(tab, item)
-        window:SelectTab(tab)
-        task.defer(function()
-            if tab.Page and item.Instance and item.Instance.Parent then
-                if typeof(item.Reveal)=="function" then item.Reveal() end
-                local ay = item.Instance.AbsolutePosition.Y - tab.Page.AbsolutePosition.Y + tab.Page.CanvasPosition.Y
-                tab.Page.CanvasPosition = Vector2.new(0, math.max(ay-12,0))
-                if tab.UpdateScrollbar then tab.UpdateScrollbar() end
-                window:HighlightItem(item)
-            end
-        end)
+    playerGui.DescendantAdded:Connect(function(obj)
+        if obj.Name == "MiniGame2" then
+            task.wait(0.1)
+            solveMiniGame2(obj)
+        elseif obj.Name == "MiniGame1" then
+            task.wait(0.1)
+            solveMiniGame1(obj)
+        end
+    end)
+end
+
+local function extractCarNameFromDisplay(displayName)
+    if not displayName or displayName == "None" then
+        return nil
     end
 
-    function window:RunSearch(query)
-        query = string.lower(query or "")
-        if query=="" then window.LastSearchMiss=nil ; return end
-        for _, tab in ipairs(window.Tabs) do
-            for _, item in ipairs(tab.Items) do
-                if item.SearchText:find(query,1,true) then
-                    window.LastSearchMiss=nil
-                    window:FocusItem(tab,item) ; return
+    local carName = displayName:match("^(.-) %[[%d%.]+%]$")
+    return carName or displayName
+end
+
+local function findAttributeName(instance, targetName)
+    for attributeName in pairs(instance:GetAttributes()) do
+        if string.lower(attributeName) == string.lower(targetName) then
+            return attributeName
+        end
+    end
+
+    return nil
+end
+
+local function applyCarStatValues(targetCar)
+    if not targetCar then
+        return false, "No target car"
+    end
+
+    local maxSpeedAttribute = findAttributeName(targetCar, "MaxSpeed")
+    local drivingTorqueAttribute = findAttributeName(targetCar, "DrivingTorque")
+    if not maxSpeedAttribute or not drivingTorqueAttribute then
+        return false, "Missing MaxSpeed or DrivingTorque attribute"
+    end
+
+    local maxSpeedValue = tonumber(desiredCarMaxSpeed)
+    local accelerationValue = tonumber(desiredCarAcceleration)
+    if not maxSpeedValue or not accelerationValue then
+        return false, "Invalid Max Speed or Acceleration value"
+    end
+
+    local ok = pcall(function()
+        targetCar:SetAttribute(maxSpeedAttribute, maxSpeedValue)
+        targetCar:SetAttribute(drivingTorqueAttribute, accelerationValue)
+    end)
+
+    return ok, ok and nil or "Unable to update car attributes"
+end
+
+local function restoreCarStatValues()
+    if not appliedCarStatsTarget or not appliedCarStatsTarget.Parent then
+        appliedCarStatsTarget = nil
+        appliedCarStatsOriginal.MaxSpeed = nil
+        appliedCarStatsOriginal.DrivingTorque = nil
+        return false, "Target car was removed"
+    end
+
+    local maxSpeedAttribute = findAttributeName(appliedCarStatsTarget, "MaxSpeed")
+    local drivingTorqueAttribute = findAttributeName(appliedCarStatsTarget, "DrivingTorque")
+    if not maxSpeedAttribute or not drivingTorqueAttribute then
+        return false, "Missing MaxSpeed or DrivingTorque attribute"
+    end
+
+    local ok = pcall(function()
+        appliedCarStatsTarget:SetAttribute(maxSpeedAttribute, appliedCarStatsOriginal.MaxSpeed)
+        appliedCarStatsTarget:SetAttribute(drivingTorqueAttribute, appliedCarStatsOriginal.DrivingTorque)
+    end)
+
+    if ok then
+        appliedCarStatsTarget = nil
+        appliedCarStatsOriginal.MaxSpeed = nil
+        appliedCarStatsOriginal.DrivingTorque = nil
+    end
+
+    return ok, ok and nil or "Unable to restore car attributes"
+end
+
+local function getCarsWithSpawnEnabled()
+    if not localPlayer then
+        return {}
+    end
+
+    local carFolder = localPlayer:FindFirstChild("Car")
+    if not carFolder then
+        return {}
+    end
+
+    local cars = {}
+    for _, child in ipairs(carFolder:GetChildren()) do
+        local spawnAttribute = findAttributeName(child, "spawn")
+        if spawnAttribute and child:GetAttribute(spawnAttribute) == true then
+            table.insert(cars, {
+                instance = child,
+                attribute = spawnAttribute
+            })
+        end
+    end
+
+    return cars
+end
+
+uiSettingSection:AddKeybind("Toggle GUI Key", {
+    Default = "Insert",
+    Callback = function(keyCode)
+        window.ToggleKeyCode = keyCode
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "UI Setting",
+            Description = "GUI toggle key set to " .. (keyCode and keyCode.Name or "NONE"),
+            Type = "success",
+            Duration = 2
+        })
+    end
+})
+
+uiSettingSection:AddToggle("Show Keybinds", {
+    Default = false,
+    Callback = function(state)
+        if state then
+            window:OpenKeybinds({
+                Title = "Keybinds"
+            })
+        else
+            window:CloseKeybinds()
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "UI Setting",
+            Description = state and "Keybind display enabled" or "Keybind display disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+uiSettingSection:AddToggle("Show FPS/PING", {
+    Default = false,
+    Callback = function(state)
+        if state then
+            window:OpenStatsOverlay({
+                Title = "Performance"
+            })
+        else
+            window:CloseStatsOverlay()
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "UI Setting",
+            Description = state and "FPS/PING display enabled" or "FPS/PING display disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+local function getConfigList()
+    local configs = window:ListConfigs()
+    if #configs == 0 then
+        return {"No Configs"}
+    end
+
+    return configs
+end
+
+local selectedConfig = nil
+local configNameBox = configSection:AddTextbox("Config Name", {
+    Default = "default",
+    Placeholder = "Enter config name"
+})
+
+local configDropdown = configSection:AddDropdown("Config List", {
+    Items = getConfigList(),
+    Default = getConfigList()[1],
+    Callback = function(value)
+        if value == "No Configs" then
+            selectedConfig = nil
+            return
+        end
+
+        selectedConfig = value
+    end
+})
+
+local function refreshConfigDropdown(preferred)
+    local configs = getConfigList()
+    local defaultValue = preferred
+
+    if defaultValue == "No Configs" then
+        defaultValue = nil
+    end
+
+    if not defaultValue or defaultValue == "" then
+        defaultValue = configs[1]
+    end
+
+    configDropdown:Refresh(configs, defaultValue)
+    if defaultValue and defaultValue ~= "No Configs" then
+        selectedConfig = defaultValue
+    elseif configs[1] ~= "No Configs" then
+        selectedConfig = configs[1]
+    else
+        selectedConfig = nil
+    end
+end
+
+configSection:AddButton("Refresh Configs", {
+    Callback = function()
+        refreshConfigDropdown(selectedConfig)
+
+        window:Notify({
+            Title = "Config",
+            Description = "Config list refreshed",
+            Type = "success",
+            Duration = 2
+        })
+    end
+})
+
+configSection:AddButton("Save Config", {
+    Callback = function()
+        local configName = configNameBox:Get()
+        local ok, message = window:SaveConfig(configName)
+
+        if ok then
+            refreshConfigDropdown(configName)
+        end
+
+        window:Notify({
+            Title = "Config",
+            Description = ok and ("Saved config: " .. configName) or ("Save failed: " .. tostring(message)),
+            Type = ok and "success" or "error",
+            Duration = 3
+        })
+    end
+})
+
+configSection:AddButton("Load Config", {
+    Callback = function()
+        local configName = selectedConfig or configNameBox:Get()
+        local ok, message = window:LoadConfig(configName)
+
+        window:Notify({
+            Title = "Config",
+            Description = ok and ("Loaded config: " .. configName) or ("Load failed: " .. tostring(message)),
+            Type = ok and "success" or "error",
+            Duration = 3
+        })
+    end
+})
+
+configSection:AddButton("Delete Config", {
+    Callback = function()
+        local configName = selectedConfig or configNameBox:Get()
+        local ok, message = window:DeleteConfig(configName)
+
+        if ok then
+            refreshConfigDropdown()
+        end
+
+        window:Notify({
+            Title = "Config",
+            Description = ok and ("Deleted config: " .. configName) or ("Delete failed: " .. tostring(message)),
+            Type = ok and "success" or "error",
+            Duration = 3
+        })
+    end
+})
+
+configSection:AddButton("Set Autoload", {
+    Callback = function()
+        local configName = selectedConfig or configNameBox:Get()
+        local ok = window:SetAutoload(configName)
+
+        window:Notify({
+            Title = "Config",
+            Description = ok and ("Autoload set to: " .. configName) or "Autoload update failed",
+            Type = ok and "success" or "error",
+            Duration = 3
+        })
+    end
+})
+
+configSection:AddButton("Clear Autoload", {
+    Callback = function()
+        local ok = window:SetAutoload(nil)
+
+        window:Notify({
+            Title = "Config",
+            Description = ok and "Autoload cleared" or "Unable to clear autoload",
+            Type = ok and "success" or "error",
+            Duration = 3
+        })
+    end
+})
+
+refreshConfigDropdown(window:GetAutoload())
+
+consoleSection:AddToggle("Open Console", {
+    Default = false,
+    Callback = function(state)
+        if state then
+            window:OpenConsole({
+                Title = "GodWeapon Console",
+                SaveFolder = "VertexLogs",
+                FileName = "godweapon_console"
+            })
+        else
+            window:CloseConsole()
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Console",
+            Description = state and "Console opened" or "Console closed",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+consoleSection:AddButton("Open Console", {
+    Callback = function()
+        window:OpenConsole({
+            Title = "GodWeapon Console",
+            SaveFolder = "VertexLogs",
+            FileName = "godweapon_console"
+        })
+    end
+})
+
+consoleSection:AddButton("Close Console", {
+    Callback = function()
+        window:CloseConsole()
+    end
+})
+
+consoleSection:AddButton("Test Console Log", {
+    Callback = function()
+        print("[GodWeapon] Console info test")
+        warn("[GodWeapon] Console warning test")
+        print("[GodWeapon] Console ready for live output")
+    end
+})
+
+local selectedWalkSpeed = 16
+local walkSpeedEnabled = false
+local infJumpEnabled = false
+local antiAfkEnabled = false
+local noclipEnabled = false
+local noclipConnection = nil
+local walkSpeedSlider
+local walkSpeedBox
+
+local function getHumanoid()
+    local character = localPlayer and localPlayer.Character
+    if not character then
+        return nil
+    end
+
+    return character:FindFirstChildOfClass("Humanoid")
+end
+
+local function applyWalkSpeed()
+    local humanoid = getHumanoid()
+    if humanoid and walkSpeedEnabled then
+        humanoid.WalkSpeed = selectedWalkSpeed
+    end
+end
+
+local function setCharacterNoclip(state)
+    local character = localPlayer and localPlayer.Character
+    if not character then
+        return
+    end
+
+    for _, descendant in ipairs(character:GetDescendants()) do
+        if descendant:IsA("BasePart") then
+            descendant.CanCollide = not state
+        end
+    end
+end
+
+local function getStatusNumber(statusName)
+    local statusFolder = localPlayer and localPlayer:FindFirstChild("Status")
+    if not statusFolder then
+        return nil
+    end
+
+    local valueObject = statusFolder:FindFirstChild(statusName)
+    if not valueObject then
+        return nil
+    end
+
+    return tonumber(valueObject.Value)
+end
+
+local function getWebhookRequestFunction()
+    return (syn and syn.request) or http_request or request or (http and http.request) or (fluxus and fluxus.request) or
+               (getgenv and getgenv().request) or (getgenv and getgenv().http_request)
+end
+
+local function parseNumericValue(value)
+    if value == nil then
+        return nil
+    end
+
+    if type(value) == "number" then
+        return value
+    end
+
+    local numberText = tostring(value):gsub(",", ""):match("%-?%d+%.?%d*")
+    return numberText and tonumber(numberText) or nil
+end
+
+local function getAttributeCaseInsensitive(instance, attributeName)
+    if not instance or not attributeName then
+        return nil, nil
+    end
+
+    local exactValue = instance:GetAttribute(attributeName)
+    if exactValue ~= nil then
+        return exactValue, attributeName
+    end
+
+    local loweredTarget = string.lower(attributeName)
+    for name, value in pairs(instance:GetAttributes()) do
+        if string.lower(name) == loweredTarget then
+            return value, name
+        end
+    end
+
+    return nil, nil
+end
+
+local function readMoneyFromInventoryNode(moneyNode)
+    if not moneyNode then
+        return nil, nil
+    end
+
+    local exactLowerValue = parseNumericValue(moneyNode:GetAttribute("value"))
+    if exactLowerValue ~= nil then
+        return exactLowerValue, "Inventory1.5.Money.value"
+    end
+
+    local attributeCandidates = {"value", "Value", "amount", "Amount", "Money", "money", "Cash", "cash"}
+
+    for _, attributeName in ipairs(attributeCandidates) do
+        local attributeValue, resolvedName = getAttributeCaseInsensitive(moneyNode, attributeName)
+        local parsedValue = parseNumericValue(attributeValue)
+        if parsedValue ~= nil then
+            return parsedValue, "Inventory1.5.Money." .. tostring(resolvedName)
+        end
+    end
+
+    if moneyNode:IsA("ValueBase") then
+        local parsedValue = parseNumericValue(moneyNode.Value)
+        if parsedValue ~= nil then
+            return parsedValue, "Inventory1.5.Money.ValueBase"
+        end
+    end
+
+    for _, descendant in ipairs(moneyNode:GetDescendants()) do
+        for _, attributeName in ipairs(attributeCandidates) do
+            local attributeValue, resolvedName = getAttributeCaseInsensitive(descendant, attributeName)
+            local parsedValue = parseNumericValue(attributeValue)
+            if parsedValue ~= nil then
+                return parsedValue, "Inventory1.5.Money.Descendant." .. tostring(resolvedName)
+            end
+        end
+
+        if descendant:IsA("ValueBase") then
+            local parsedValue = parseNumericValue(descendant.Value)
+            if parsedValue ~= nil then
+                return parsedValue, "Inventory1.5.Money.Descendant.ValueBase"
+            end
+        end
+
+        if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+            local parsedValue = parseNumericValue(descendant.Text)
+            if parsedValue ~= nil then
+                return parsedValue, "Inventory1.5.Money.Descendant.Text"
+            end
+        end
+    end
+
+    return nil, nil
+end
+
+local function readMoneyValueFromInstance(root)
+    if not root then
+        return nil
+    end
+
+    local candidateNames = {"Money", "Cash", "Wallet", "Balance", "Coins", "Coin", "Baht", "Bucks"}
+
+    for _, name in ipairs(candidateNames) do
+        local exact = root:FindFirstChild(name)
+        if exact and exact:IsA("ValueBase") then
+            local value = parseNumericValue(exact.Value)
+            if value ~= nil then
+                return value, exact.Name
+            end
+        end
+    end
+
+    for _, child in ipairs(root:GetChildren()) do
+        for _, name in ipairs(candidateNames) do
+            if string.lower(child.Name) == string.lower(name) and child:IsA("ValueBase") then
+                local value = parseNumericValue(child.Value)
+                if value ~= nil then
+                    return value, child.Name
                 end
             end
         end
-        if window.LastSearchMiss~=query then
-            window.LastSearchMiss=query
-            window.Library:Notify({Title="Search", Content="No results found", Duration=2})
-        end
     end
 
-    -- ── CreateTab ──────────────────────────────────────────
-    function window:CreateTab(name, iconText)
-        local tab = setmetatable({}, Tab)
-        tab.Window = window ; tab.Name = name ; tab.Items = {}
-
-        local btn = create("TextButton", {
-            BackgroundColor3       = Theme.Sidebar,
-            BackgroundTransparency = 1,
-            BorderSizePixel        = 0,
-            Size                   = UDim2.new(1,0,0,32),
-            Text                   = "",
-            AutoButtonColor        = false,
-            Parent                 = tabList,
-        })
-        corner(btn, 7)
-        ripple(btn)
-
-        create("TextLabel", {
-            Name                   = "IconLabel",
-            BackgroundTransparency = 1,
-            Position               = UDim2.fromOffset(10, 0),
-            Size                   = UDim2.fromOffset(18, 32),
-            FontFace               = FontFaceValue,
-            Text                   = iconText or string.sub(name,1,1),
-            TextColor3             = Theme.Muted,
-            TextSize               = 12,
-            Parent                 = btn,
-        })
-        create("TextLabel", {
-            Name                   = "TextLabel",
-            BackgroundTransparency = 1,
-            Position               = UDim2.fromOffset(30, 0),
-            Size                   = UDim2.new(1,-38,1,0),
-            FontFace               = FontFaceValue,
-            Text                   = name,
-            TextColor3             = Theme.Subtext,
-            TextSize               = 13,
-            TextXAlignment         = Enum.TextXAlignment.Left,
-            Parent                 = btn,
-        })
-
-        local page = create("ScrollingFrame", {
-            Name             = name.."Frame",
-            BackgroundTransparency = 1,
-            BorderSizePixel  = 0,
-            Size             = UDim2.fromScale(1,1),
-            Visible          = false,
-            CanvasSize       = UDim2.new(),
-            Parent           = pageHost,
-        })
-        local pageBody = create("Frame", {
-            BackgroundTransparency = 1,
-            Size                   = UDim2.new(1,0,0,0),
-            AutomaticSize          = Enum.AutomaticSize.Y,
-            Parent                 = page,
-        })
-        local pageLayout = listLayout(pageBody, 8)
-        pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            page.CanvasSize = UDim2.fromOffset(0, pageLayout.AbsoluteContentSize.Y+4)
-        end)
-        local pageTrack, _, updatePageSB = themedScrollbar(
-            page, pageHost,
-            UDim2.new(1,-4,0,2), UDim2.new(0,4,1,-4)
-        )
-        pageTrack.Visible = false
-
-        tab.Button          = btn
-        tab.Page            = page
-        tab.PageBody        = pageBody
-        tab.ScrollbarTrack  = pageTrack
-        tab.UpdateScrollbar = updatePageSB
-
-        function tab:RegisterItem(instance, searchText, highlightInstance, revealCallback)
-            table.insert(tab.Items, {
-                Instance          = instance,
-                SearchText        = string.lower(searchText or ""),
-                HighlightInstance = highlightInstance or instance,
-                Reveal            = revealCallback,
-            })
-        end
-
-        function tab:CreateSection(title)
-            local section = setmetatable({}, Section)
-            section.Tab = tab
-
-            local card = create("Frame", {
-                BackgroundColor3 = Theme.Surface,
-                BorderSizePixel  = 0,
-                Size             = UDim2.new(1,0,0,0),
-                AutomaticSize    = Enum.AutomaticSize.Y,
-                Parent           = pageBody,
-            })
-            corner(card, 10)
-            stroke(card, Theme.Outline)
-            pad(card, 12, 12, 12, 12)
-
-            -- section header row
-            local hRow = create("Frame", {
-                BackgroundTransparency = 1,
-                Size                   = UDim2.new(1,0,0,16),
-                Parent                 = card,
-            })
-            create("TextLabel", {
-                BackgroundTransparency = 1,
-                Size                   = UDim2.new(1,0,1,0),
-                FontFace               = FontFaceValue,
-                Text                   = title:upper(),
-                TextColor3             = Theme.Muted,
-                TextSize               = 10,
-                TextXAlignment         = Enum.TextXAlignment.Left,
-                Parent                 = hRow,
-            })
-
-            local holder = create("Frame", {
-                BackgroundTransparency = 1,
-                Position               = UDim2.fromOffset(0, 22),
-                Size                   = UDim2.new(1,0,0,0),
-                AutomaticSize          = Enum.AutomaticSize.Y,
-                Parent                 = card,
-            })
-            listLayout(holder, 6)
-
-            section.Card   = card
-            section.Holder = holder
-            return section
-        end
-
-        btn.MouseEnter:Connect(function()
-            if window.CurrentTab~=tab then
-                tween(btn, SnapTween, {BackgroundColor3=Theme.Surface2, BackgroundTransparency=0})
+    local attributes = root:GetAttributes()
+    for attributeName, attributeValue in pairs(attributes) do
+        for _, name in ipairs(candidateNames) do
+            if string.lower(attributeName) == string.lower(name) then
+                local value = parseNumericValue(attributeValue)
+                if value ~= nil then
+                    return value, attributeName
+                end
             end
-        end)
-        btn.MouseLeave:Connect(function()
-            if window.CurrentTab~=tab then
-                tween(btn, SnapTween, {BackgroundColor3=Theme.Sidebar, BackgroundTransparency=1})
+        end
+    end
+
+    return nil, nil
+end
+
+local function resolveInventoryMoneyNode()
+    local inventoryGui = playerGui and playerGui:FindFirstChild("Inventory1.5")
+    local inventoryFrame = inventoryGui and inventoryGui:FindFirstChild("Frame")
+    local inventoryMain = inventoryFrame and inventoryFrame:FindFirstChild("Main")
+    local inventoryScrollingFrame = inventoryMain and inventoryMain:FindFirstChild("ScrollingFrame")
+    local inventoryScrolling = inventoryScrollingFrame and inventoryScrollingFrame:FindFirstChild("Scrolling")
+
+    return inventoryGui, inventoryScrolling and inventoryScrolling:FindFirstChild("Money")
+end
+
+local function getCurrentMoneyAmount()
+    local inventoryGui, moneyNode = resolveInventoryMoneyNode()
+    for _ = 1, 10 do
+        if moneyNode then
+            local parsedValue, sourceName = readMoneyFromInventoryNode(moneyNode)
+            if parsedValue ~= nil then
+                return parsedValue, sourceName
             end
-        end)
-        btn.MouseButton1Click:Connect(function() window:SelectTab(tab) end)
+        end
 
-        table.insert(window.Tabs, tab)
-        return tab
+        task.wait(0.15)
+        inventoryGui, moneyNode = resolveInventoryMoneyNode()
     end
 
-    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        window:RunSearch(searchBox.Text)
-    end)
-
-    closeBtn.MouseButton1Click:Connect(function()
-        tween(root, MidTween, {BackgroundTransparency=1, Size=UDim2.fromOffset(root.AbsoluteSize.X-16,root.AbsoluteSize.Y-12)})
-        task.delay(0.22, function() if self.ScreenGui.Parent then self.ScreenGui:Destroy() end end)
-    end)
-    minimizeBtn.MouseButton1Click:Connect(function() window:ToggleVisible() end)
-    maximizeBtn.MouseButton1Click:Connect(function() window:SetMaximized(not window.Maximized) end)
-
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if not gp and input.KeyCode==window.ToggleKey then window:ToggleVisible() end
-    end)
-
-    -- resize handles
-    local rsRight  = create("Frame",{Name="RSRight",  BackgroundTransparency=1,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,10),Size=UDim2.new(0,6,1,-16),Parent=root})
-    local rsBottom = create("Frame",{Name="RSBottom", BackgroundTransparency=1,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,10,1,0), Size=UDim2.new(1,-16,0,6),Parent=root})
-    local rsCorner = create("Frame",{Name="RSCorner", BackgroundTransparency=1,AnchorPoint=Vector2.new(1,1),Position=UDim2.new(1,0,1,0),  Size=UDim2.fromOffset(12,12),Parent=root})
-    local rsState  = {Active=false,Mode=nil,SM=nil,SS=nil}
-    local function beginRS(mode,input)
-        if window.Maximized then window:SetMaximized(false) end
-        rsState.Active=true;rsState.Mode=mode;rsState.SM=input.Position;rsState.SS=root.AbsoluteSize
+    if inventoryGui then
+        for _, descendant in ipairs(inventoryGui:GetDescendants()) do
+            if descendant.Name == "Money" then
+                local parsedValue, sourceName = readMoneyFromInventoryNode(descendant)
+                if parsedValue ~= nil then
+                    return parsedValue, sourceName
+                end
+            end
+        end
     end
-    for mode,h in pairs({Right=rsRight,Bottom=rsBottom,Corner=rsCorner}) do
-        h.InputBegan:Connect(function(input)
-            if input.UserInputType==Enum.UserInputType.MouseButton1 then beginRS(mode,input) end
-        end)
-    end
-    UserInputService.InputChanged:Connect(function(input)
-        if not rsState.Active or input.UserInputType~=Enum.UserInputType.MouseMovement then return end
-        local d=input.Position-rsState.SM ; local w,h=rsState.SS.X,rsState.SS.Y
-        if rsState.Mode=="Right"  or rsState.Mode=="Corner" then w=w+d.X end
-        if rsState.Mode=="Bottom" or rsState.Mode=="Corner" then h=h+d.Y end
-        w=math.max(window.MinSize.X,math.floor(w+0.5))
-        h=math.max(window.MinSize.Y,math.floor(h+0.5))
-        window.Size=UDim2.fromOffset(w,h) ; root.Size=window.Size
-        window:RefreshLayout()
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType==Enum.UserInputType.MouseButton1 then rsState.Active=false end
-    end)
-    root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() window:RefreshLayout() end)
-    Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-        if window.Maximized then root.Size=maxSize() end
-        window:RefreshLayout()
-    end)
 
-    tween(root, SlowTween, {Size=window.Size})
-    window:RefreshLayout()
-    return window
+    local containers = {localPlayer and localPlayer:FindFirstChild("leaderstats"),
+                        localPlayer and localPlayer:FindFirstChild("Status"),
+                        localPlayer and localPlayer:FindFirstChild("Data"), localPlayer}
+
+    for _, container in ipairs(containers) do
+        local value, sourceName = readMoneyValueFromInstance(container)
+        if value ~= nil then
+            return value, sourceName
+        end
+    end
+
+    if localPlayer then
+        for _, descendant in ipairs(localPlayer:GetDescendants()) do
+            local value, sourceName = readMoneyValueFromInstance(descendant)
+            if value ~= nil then
+                return value, sourceName
+            end
+        end
+    end
+
+    return nil, nil
 end
 
--- ============================================================
--- Section._row
--- ============================================================
-function Section:_row(height, searchText, tooltip)
-    local row = create("Frame", {
-        BackgroundColor3 = Theme.Background,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1,0,0,height or 36),
-        Parent           = self.Holder,
-    })
-    corner(row, 7)
-    stroke(row, Theme.Outline)
-    self.Tab:RegisterItem(row, searchText)
-    self.Tab.Window.Library:_bindTooltip(row, tooltip)
-    return row
-end
-
--- AddLabel
-function Section:AddLabel(options)
-    options = options or {}
-    local row = self:_row(34, options.Text or "label", options.Tooltip)
-    local lbl = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(10, 0),
-        Size                   = UDim2.new(1,-20,1,0),
-        FontFace               = FontFaceValue,
-        Text                   = options.Text or "Label",
-        TextColor3             = options.Color or Theme.Subtext,
-        TextSize               = 12,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = row,
-    })
-    return {Set=function(_,t) lbl.Text=t end}
-end
-
--- AddDivider
-function Section:AddDivider(options)
-    options = options or {}
-    local row = create("Frame", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1,0,0,18),
-        Parent                 = self.Holder,
-    })
-    create("Frame", {
-        BackgroundColor3 = Theme.Outline,
-        BorderSizePixel  = 0,
-        Position         = UDim2.new(0,0,0.5,0),
-        Size             = UDim2.new(1,0,0,1),
-        Parent           = row,
-    })
-    if options.Text and options.Text~="" then
-        create("TextLabel", {
-            BackgroundColor3 = Theme.Surface,
-            BorderSizePixel  = 0,
-            AnchorPoint      = Vector2.new(0.5,0.5),
-            Position         = UDim2.fromScale(0.5,0.5),
-            AutomaticSize    = Enum.AutomaticSize.X,
-            Size             = UDim2.fromOffset(0,14),
-            FontFace         = FontFaceValue,
-            Text             = "  "..options.Text.."  ",
-            TextColor3       = Theme.Muted,
-            TextSize         = 10,
-            Parent           = row,
-        })
-    end
-    self.Tab:RegisterItem(row, options.Text or "divider")
-end
-
--- AddButton
-function Section:AddButton(options)
-    options = options or {}
-    local hasSub = options.SubText and options.SubText~=""
-    local btn = create("TextButton", {
-        BackgroundColor3 = Theme.Background,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1,0,0,hasSub and 50 or 36),
-        Text             = "",
-        AutoButtonColor  = false,
-        Parent           = self.Holder,
-    })
-    corner(btn, 7)
-    stroke(btn, Theme.Outline)
-    ripple(btn)
-
-    local titleLbl = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(10, hasSub and 5 or 0),
-        Size                   = UDim2.new(1,-20,0,16),
-        FontFace               = FontFaceValue,
-        Text                   = options.Text or "Button",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = btn,
-    })
-    local subLbl
-    if hasSub then
-        subLbl = create("TextLabel", {
-            BackgroundTransparency = 1,
-            Position               = UDim2.fromOffset(10, 22),
-            Size                   = UDim2.new(1,-20,0,14),
-            FontFace               = FontFaceValue,
-            Text                   = options.SubText,
-            TextColor3             = Theme.Muted,
-            TextSize               = 10,
-            TextXAlignment         = Enum.TextXAlignment.Left,
-            Parent                 = btn,
-        })
+local function formatMoneyAmount(value)
+    if value == nil then
+        return "Unknown"
     end
 
-    -- chevron right
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        AnchorPoint            = Vector2.new(1,0.5),
-        Position               = UDim2.new(1,-10,0.5,0),
-        Size                   = UDim2.fromOffset(10,10),
-        FontFace               = FontFaceValue,
-        Text                   = "›",
-        TextColor3             = Theme.Muted,
-        TextSize               = 16,
-        Parent                 = btn,
-    })
+    local sign = value < 0 and "-" or ""
+    local whole = tostring(math.floor(math.abs(value)))
+    local formatted = whole
 
-    btn.MouseEnter:Connect(function() tween(btn, SnapTween, {BackgroundColor3=Theme.Surface2}) end)
-    btn.MouseLeave:Connect(function() tween(btn, SnapTween, {BackgroundColor3=Theme.Background}) end)
-    btn.MouseButton1Click:Connect(function() safeCall(options.Callback) end)
+    while true do
+        local replaced
+        formatted, replaced = formatted:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+        if replaced == 0 then
+            break
+        end
+    end
 
-    self.Tab:RegisterItem(btn, (options.Text or "button").." "..(options.SubText or ""))
-    self.Tab.Window.Library:_bindTooltip(btn, options.Tooltip)
-    return {
-        Instance   = btn,
-        SetText    = function(_,t) titleLbl.Text=t end,
-        SetSubText = function(_,t)
-            local show = t and t~=""
-            if show and not subLbl then
-                subLbl = create("TextLabel",{
-                    BackgroundTransparency=1,Position=UDim2.fromOffset(10,22),
-                    Size=UDim2.new(1,-20,0,14),FontFace=FontFaceValue,
-                    Text=t,TextColor3=Theme.Muted,TextSize=10,
-                    TextXAlignment=Enum.TextXAlignment.Left,Parent=btn,
-                })
-            elseif subLbl then subLbl.Text=t or "" ; subLbl.Visible=show end
-            btn.Size=UDim2.new(1,0,0,show and 50 or 36)
-            titleLbl.Position=UDim2.fromOffset(10, show and 5 or 0)
-        end,
+    return sign .. formatted
+end
+
+local function sendSellWebhook(itemName, moneyBeforeSell)
+    local requestFunction = getWebhookRequestFunction()
+    if not requestFunction then
+        return false
+    end
+
+    local moneyAmount = getCurrentMoneyAmount()
+    local currentTime = os.date("%Y-%m-%d %H:%M:%S")
+    local playerName = tostring(localPlayer and localPlayer.Name or "Unknown")
+    local earnedAmount = nil
+    if moneyBeforeSell ~= nil and moneyAmount ~= nil then
+        earnedAmount = moneyAmount - moneyBeforeSell
+    end
+
+    local payload = {
+        username = "GodWeapon",
+        embeds = {{
+            title = "GodWeapon Sell Completed",
+            description = "stats auto farm By.VertexHub",
+            color = 5763719,
+            fields = {{
+                name = "Time",
+                value = "`" .. currentTime .. "`",
+                inline = true
+            }, {
+                name = "Money",
+                value = "`" .. formatMoneyAmount(moneyAmount) .. "`",
+                inline = true
+            }, {
+                name = "Earned",
+                value = "`" .. formatMoneyAmount(earnedAmount) .. "`",
+                inline = true
+            }, {
+                name = "Player",
+                value = "`" .. playerName .. "`",
+                inline = true
+            }, {
+                name = "Item",
+                value = "`" .. tostring(itemName or "Unknown") .. "`",
+                inline = true
+            }},
+            footer = {
+                text = "Vertex Hub • Auto Farm Report"
+            },
+            timestamp = DateTime.now():ToIsoDate()
+        }}
     }
-end
 
--- AddButtonGroup
-function Section:AddButtonGroup(options)
-    options = options or {}
-    local expanded = options.DefaultExpanded or false
-
-    local group = create("Frame", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1,0,0,36),
-        ClipsDescendants       = true,
-        Parent                 = self.Holder,
-    })
-    local mainBtn = create("TextButton", {
-        BackgroundColor3 = Theme.Background,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1,0,0,36),
-        Text             = "",
-        AutoButtonColor  = false,
-        Parent           = group,
-    })
-    corner(mainBtn, 7)
-    stroke(mainBtn, Theme.Outline)
-    ripple(mainBtn)
-
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(10,0),
-        Size                   = UDim2.new(1,-40,1,0),
-        FontFace               = FontFaceValue,
-        Text                   = options.Text or "Group",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = mainBtn,
-    })
-    local arrow = create("TextLabel", {
-        BackgroundTransparency = 1,
-        AnchorPoint            = Vector2.new(1,0.5),
-        Position               = UDim2.new(1,-10,0.5,0),
-        Size                   = UDim2.fromOffset(10,10),
-        FontFace               = FontFaceValue,
-        Text                   = expanded and "⌃" or "⌄",
-        TextColor3             = Theme.Muted,
-        TextSize               = 12,
-        Parent                 = mainBtn,
-    })
-
-    local subClip = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(0,44),
-        Size                   = UDim2.new(1,0,0,0),
-        ClipsDescendants       = true,
-        Parent                 = group,
-    })
-    local subHolder = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(12,0),
-        Size                   = UDim2.new(1,-12,0,0),
-        AutomaticSize          = Enum.AutomaticSize.Y,
-        Parent                 = subClip,
-    })
-    local subLayout = listLayout(subHolder, 4)
-    local contentH  = 0
-
-    local function recalc()
-        contentH = subLayout.AbsoluteContentSize.Y
-        local target = expanded and (44+contentH) or 36
-        tween(group, MidTween, {Size=UDim2.new(1,0,0,target)})
-        tween(subClip, MidTween, {Size=UDim2.new(1,0,0,expanded and contentH or 0)})
-        arrow.Text = expanded and "⌃" or "⌄"
-    end
-    subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(recalc)
-
-    local api = {}
-    function api:SetExpanded(s) expanded=s ; recalc() end
-    function api:Toggle() api:SetExpanded(not expanded) end
-    function api:AddSubButton(text, callback, tooltip)
-        local sb = create("TextButton", {
-            BackgroundColor3 = Theme.Surface2,
-            BorderSizePixel  = 0,
-            Size             = UDim2.new(1,0,0,30),
-            Text             = "",
-            AutoButtonColor  = false,
-            Parent           = subHolder,
+    local ok = pcall(function()
+        requestFunction({
+            Url = SELL_WEBHOOK_URL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode(payload)
         })
-        corner(sb, 6)
-        ripple(sb)
-        create("TextLabel", {
-            BackgroundTransparency = 1,
-            Position               = UDim2.fromOffset(10,0),
-            Size                   = UDim2.new(1,-20,1,0),
-            FontFace               = FontFaceValue,
-            Text                   = text,
-            TextColor3             = Theme.Subtext,
-            TextSize               = 12,
-            TextXAlignment         = Enum.TextXAlignment.Left,
-            Parent                 = sb,
+    end)
+
+    return ok
+end
+
+local function pressKeyCode(keyCode)
+    return pcall(function()
+        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+        task.wait(0.03)
+        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+    end)
+end
+
+local function getJobScriptFolder(jobName)
+    local jobFolder = workspace:FindFirstChild("JOB")
+    if not jobFolder then
+        return nil
+    end
+
+    local nestedJobFolder = jobFolder:FindFirstChild("JOB")
+    if not nestedJobFolder then
+        return nil
+    end
+
+    local scriptFolder = nestedJobFolder:FindFirstChild("SCRIPT")
+    if not scriptFolder then
+        return nil
+    end
+
+    return scriptFolder:FindFirstChild(jobName)
+end
+
+local function getAvailableFarmJobs()
+    local jobFolder = workspace:FindFirstChild("JOB")
+    if not jobFolder then
+        return {"None"}
+    end
+
+    local nestedJobFolder = jobFolder:FindFirstChild("JOB")
+    if not nestedJobFolder then
+        return {"None"}
+    end
+
+    local scriptFolder = nestedJobFolder:FindFirstChild("SCRIPT")
+    if not scriptFolder then
+        return {"None"}
+    end
+
+    local items = {"None"}
+    for _, child in ipairs(scriptFolder:GetChildren()) do
+        if not table.find(items, child.Name) then
+            table.insert(items, child.Name)
+        end
+    end
+
+    table.sort(items, function(a, b)
+        if a == "None" then
+            return true
+        elseif b == "None" then
+            return false
+        end
+        return a < b
+    end)
+
+    return items
+end
+
+local function getInstanceSortPosition(instance)
+    if instance:IsA("Model") then
+        local cf = instance:GetPivot()
+        return cf.Position
+    end
+
+    if instance:IsA("BasePart") then
+        return instance.Position
+    end
+
+    local part = instance:FindFirstChildWhichIsA("BasePart", true)
+    if part then
+        return part.Position
+    end
+
+    return Vector3.zero
+end
+
+function getTargetTransform(target)
+    if target:IsA("Model") then
+        local cf, size = target:GetBoundingBox()
+        return cf, size
+    end
+
+    if target:IsA("BasePart") then
+        return target.CFrame, target.Size
+    end
+
+    local part = target:FindFirstChildWhichIsA("BasePart", true)
+    if part then
+        return part.CFrame, part.Size
+    end
+
+    if target:IsA("PVInstance") then
+        return target:GetPivot(), Vector3.new(4, 4, 4)
+    end
+
+    return nil, nil
+end
+
+local function getFarmTargetsForJob(jobName)
+    local targetFolder = getJobScriptFolder(jobName)
+    if not targetFolder then
+        return {}
+    end
+
+    local targets = {}
+    for _, child in ipairs(targetFolder:GetChildren()) do
+        local cf = getTargetTransform(child)
+        if cf then
+            table.insert(targets, child)
+        end
+    end
+
+    table.sort(targets, function(a, b)
+        local posA = getInstanceSortPosition(a)
+        local posB = getInstanceSortPosition(b)
+
+        if posA.X ~= posB.X then
+            return posA.X < posB.X
+        end
+        if posA.Y ~= posB.Y then
+            return posA.Y < posB.Y
+        end
+        if posA.Z ~= posB.Z then
+            return posA.Z < posB.Z
+        end
+
+        return a:GetDebugId() < b:GetDebugId()
+    end)
+
+    return targets
+end
+
+local function getNextFarmTarget()
+    local targets = getFarmTargetsForJob(selectedFarmJob)
+    if #targets == 0 then
+        return nil
+    end
+
+    for _, target in ipairs(targets) do
+        if not usedFarmTargets[target] then
+            usedFarmTargets[target] = true
+            return target
+        end
+    end
+
+    usedFarmTargets = {}
+    local firstTarget = targets[1]
+    usedFarmTargets[firstTarget] = true
+    return firstTarget
+end
+
+local function prepareFarmCharacter()
+    local humanoid = getHumanoid()
+    local rootPart = getRootPart()
+    if not humanoid or not rootPart then
+        return false
+    end
+
+    originalPlatformStand = humanoid.PlatformStand
+    originalAnchored = rootPart.Anchored
+    originalWalkSpeed = humanoid.WalkSpeed
+    return true
+end
+
+local function releaseFarmCharacter(moveAboveTarget)
+    local humanoid = getHumanoid()
+    local rootPart = getRootPart()
+    if not humanoid or not rootPart then
+        return
+    end
+
+    if moveAboveTarget and currentFarmTarget then
+        local targetCFrame, targetSize = getTargetTransform(currentFarmTarget)
+        if targetCFrame and targetSize then
+            local upOffset = (targetSize.Y * 0.5) + 6
+            rootPart.CFrame = targetCFrame * CFrame.new(0, upOffset, 0)
+        end
+    end
+
+    rootPart.Anchored = false
+    humanoid.PlatformStand = false
+    humanoid.Sit = false
+    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    task.wait()
+    humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    rootPart.AssemblyLinearVelocity = Vector3.zero
+
+    if walkSpeedEnabled then
+        humanoid.WalkSpeed = selectedWalkSpeed
+    else
+        humanoid.WalkSpeed = originalWalkSpeed
+    end
+
+    originalAnchored = false
+    originalPlatformStand = false
+end
+
+local function teleportUnderTarget(target)
+    local rootPart = getRootPart()
+    local humanoid = getHumanoid()
+    local targetCFrame, targetSize = getTargetTransform(target)
+    if not rootPart or not humanoid or not targetCFrame or not targetSize then
+        return false
+    end
+
+    local downOffset = (targetSize.Y * 0.5) + humanoid.HipHeight + 3
+    rootPart.CFrame = targetCFrame * CFrame.new(0, -downOffset, 0)
+    return true
+end
+
+local function teleportToTarget(target)
+    local rootPart = getRootPart()
+    local targetCFrame = getTargetTransform(target)
+    if not rootPart or not targetCFrame then
+        return false
+    end
+
+    rootPart.CFrame = targetCFrame
+    task.wait(0.15)
+    return true
+end
+
+local function waitForTargetAvailable(resolver, timeout)
+    local expiresAt = tick() + (timeout or 10)
+
+    while tick() < expiresAt do
+        local target = resolver()
+        if target then
+            return target
+        end
+        task.wait(0.25)
+    end
+
+    return nil
+end
+
+local function isNearTarget(target, maxDistance)
+    local rootPart = getRootPart()
+    local targetCFrame = getTargetTransform(target)
+    if not rootPart or not targetCFrame then
+        return false
+    end
+
+    return (rootPart.Position - targetCFrame.Position).Magnitude <= (maxDistance or 15)
+end
+
+local function getDistanceToTarget(target)
+    local rootPart = getRootPart()
+    local targetCFrame = getTargetTransform(target)
+    if not rootPart or not targetCFrame then
+        return math.huge
+    end
+
+    return (rootPart.Position - targetCFrame.Position).Magnitude
+end
+
+local function teleportToTargetReliable(target, attempts, settleTime)
+    if not target then
+        return false
+    end
+
+    for _ = 1, (attempts or 4) do
+        if teleportToTarget(target) then
+            task.wait(settleTime or 0.6)
+            if isNearTarget(target, 18) then
+                return true
+            end
+        end
+        task.wait(0.2)
+    end
+
+    return false
+end
+
+local function dexTeleportToTarget(target, attempts)
+    local character = localPlayer and localPlayer.Character
+    local rootPart = getRootPart()
+    local targetCFrame, targetSize = getTargetTransform(target)
+    if not character or not rootPart or not targetCFrame then
+        return false
+    end
+
+    local yOffset = 3
+    if targetSize then
+        yOffset = math.max((targetSize.Y * 0.5) + 3, 3)
+    end
+
+    local destination = targetCFrame * CFrame.new(0, yOffset, 0)
+
+    for _ = 1, (attempts or 6) do
+        pcall(function()
+            character:PivotTo(destination)
+        end)
+        rootPart.CFrame = destination
+        rootPart.AssemblyLinearVelocity = Vector3.zero
+        rootPart.AssemblyAngularVelocity = Vector3.zero
+        task.wait(0.12)
+
+        if (rootPart.Position - destination.Position).Magnitude <= 12 then
+            return true
+        end
+    end
+
+    return (rootPart.Position - destination.Position).Magnitude <= 16
+end
+
+local function dexTeleportToCFrame(destination, attempts)
+    local character = localPlayer and localPlayer.Character
+    local rootPart = getRootPart()
+    if not character or not rootPart then
+        return false
+    end
+
+    for _ = 1, (attempts or 8) do
+        pcall(function()
+            character:PivotTo(destination)
+        end)
+        rootPart.CFrame = destination
+        rootPart.AssemblyLinearVelocity = Vector3.zero
+        rootPart.AssemblyAngularVelocity = Vector3.zero
+        task.wait(0.12)
+
+        if (rootPart.Position - destination.Position).Magnitude <= 12 then
+            return true
+        end
+    end
+
+    return (rootPart.Position - destination.Position).Magnitude <= 16
+end
+
+local function tweenTowardTarget(target, maxDuration, speed)
+    local rootPart = getRootPart()
+    local targetCFrame = getTargetTransform(target)
+    if not rootPart or not targetCFrame then
+        return false
+    end
+
+    local distance = (rootPart.Position - targetCFrame.Position).Magnitude
+    if distance <= 20 then
+        return true
+    end
+
+    local duration = math.min(maxDuration or 2.5, distance / (speed or 120))
+    local tween = TweenService:Create(rootPart,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+            CFrame = targetCFrame
         })
-        sb.MouseEnter:Connect(function()
-            tween(sb, SnapTween, {BackgroundColor3=Theme.AccentLight})
-            sb.TextLabel.TextColor3 = Theme.Accent
-        end)
-        sb.MouseLeave:Connect(function()
-            tween(sb, SnapTween, {BackgroundColor3=Theme.Surface2})
-            sb.TextLabel.TextColor3 = Theme.Subtext
-        end)
-        sb.MouseButton1Click:Connect(function() safeCall(callback) end)
-        self.Tab:RegisterItem(sb, text or "sub button", sb, function() api:SetExpanded(true) end)
-        self.Tab.Window.Library:_bindTooltip(sb, tooltip)
-        recalc() ; return sb
-    end
 
-    mainBtn.MouseEnter:Connect(function() tween(mainBtn, SnapTween, {BackgroundColor3=Theme.Surface2}) end)
-    mainBtn.MouseLeave:Connect(function() tween(mainBtn, SnapTween, {BackgroundColor3=Theme.Background}) end)
-    mainBtn.MouseButton1Click:Connect(function()
-        api:Toggle() ; safeCall(options.Callback, expanded)
-    end)
-    self.Tab:RegisterItem(group, options.Text or "group", mainBtn)
-    self.Tab.Window.Library:_bindTooltip(mainBtn, options.Tooltip)
-    recalc() ; return api
-end
-
--- AddToggle
-function Section:AddToggle(options)
-    options = options or {}
-    local state = options.Default or false
-    local row   = self:_row(36, options.Text or "toggle", options.Tooltip)
-
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(10,0),
-        Size                   = UDim2.new(1,-66,1,0),
-        FontFace               = FontFaceValue,
-        Text                   = options.Text or "Toggle",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = row,
-    })
-
-    -- macOS-style pill toggle
-    local track = create("TextButton", {
-        BackgroundColor3 = state and Theme.Accent or Color3.fromRGB(200, 200, 210),
-        BorderSizePixel  = 0,
-        AnchorPoint      = Vector2.new(1,0.5),
-        Position         = UDim2.new(1,-10,0.5,0),
-        Size             = UDim2.fromOffset(36,20),
-        Text             = "",
-        AutoButtonColor  = false,
-        Parent           = row,
-    })
-    corner(track, 999)
-
-    local knob = create("Frame", {
-        BackgroundColor3 = Theme.White,
-        BorderSizePixel  = 0,
-        Size             = UDim2.fromOffset(16,16),
-        Position         = state and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8),
-        Parent           = track,
-    })
-    corner(knob, 999)
-    -- knob shadow
-    create("UIStroke", {
-        Color=Color3.fromRGB(0,0,0), Transparency=0.82,
-        Thickness=1, ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=knob,
-    })
-
-    local function setState(v)
-        state = v
-        tween(track, SnapTween, {BackgroundColor3 = state and Theme.Accent or Color3.fromRGB(200,200,210)})
-        tween(knob, SnapTween, {Position = state and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8)})
-        safeCall(options.Callback, state)
-    end
-    track.MouseButton1Click:Connect(function() setState(not state) end)
-    return {Set=function(_,v) setState(v) end, Get=function() return state end}
-end
-
--- AddDropdown
-function Section:AddDropdown(options)
-    options = options or {}
-    local values   = options.Values or {}
-    local selected = options.Default or values[1] or "Select"
-    local open     = false
-
-    local holder = create("Frame", {
-        BackgroundColor3 = Theme.Background,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1,0,0,36),
-        AutomaticSize    = Enum.AutomaticSize.Y,
-        Parent           = self.Holder,
-    })
-    corner(holder, 7)
-    stroke(holder, Theme.Outline)
-
-    local top = create("TextButton", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1,0,0,36),
-        Text                   = "",
-        AutoButtonColor        = false,
-        Parent                 = holder,
-    })
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(10,0),
-        Size                   = UDim2.new(0.5,0,1,0),
-        FontFace               = FontFaceValue,
-        Text                   = options.Text or "Dropdown",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = top,
-    })
-    local valLbl = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.new(0.5,0,0,0),
-        Size                   = UDim2.new(0.5,-26,1,0),
-        FontFace               = FontFaceValue,
-        Text                   = tostring(selected),
-        TextColor3             = Theme.Accent,
-        TextSize               = 12,
-        TextXAlignment         = Enum.TextXAlignment.Right,
-        TextTruncate           = Enum.TextTruncate.AtEnd,
-        Parent                 = top,
-    })
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        AnchorPoint            = Vector2.new(1,0.5),
-        Position               = UDim2.new(1,-10,0.5,0),
-        Size                   = UDim2.fromOffset(12,12),
-        FontFace               = FontFaceValue,
-        Text                   = "⌄",
-        TextColor3             = Theme.Muted,
-        TextSize               = 12,
-        Name                   = "Arrow",
-        Parent                 = top,
-    })
-
-    local optFrame = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(8,36),
-        Size                   = UDim2.new(1,-16,0,0),
-        AutomaticSize          = Enum.AutomaticSize.Y,
-        Visible                = false,
-        Parent                 = holder,
-    })
-    pad(optFrame, 0, 6, 0, 0)
-    listLayout(optFrame, 3)
-
-    local function rebuild()
-        for _,c in ipairs(optFrame:GetChildren()) do
-            if c:IsA("TextButton") then c:Destroy() end
-        end
-        for _, entry in ipairs(values) do
-            local ob = create("TextButton", {
-                BackgroundColor3 = Theme.Background,
-                BorderSizePixel  = 0,
-                Size             = UDim2.new(1,0,0,28),
-                Text             = tostring(entry),
-                TextColor3       = Theme.Text,
-                TextSize         = 12,
-                FontFace         = FontFaceValue,
-                AutoButtonColor  = false,
-                Parent           = optFrame,
-            })
-            corner(ob, 6)
-            ob.MouseEnter:Connect(function()
-                tween(ob, SnapTween, {BackgroundColor3=Theme.AccentLight, TextColor3=Theme.Accent})
-            end)
-            ob.MouseLeave:Connect(function()
-                tween(ob, SnapTween, {BackgroundColor3=Theme.Background, TextColor3=Theme.Text})
-            end)
-            ob.MouseButton1Click:Connect(function()
-                selected=entry ; valLbl.Text=tostring(entry)
-                open=false ; optFrame.Visible=false
-                top:FindFirstChild("Arrow").Text="⌄"
-                safeCall(options.Callback, selected)
-            end)
-        end
-    end
-    rebuild()
-
-    top.MouseButton1Click:Connect(function()
-        open=not open ; optFrame.Visible=open
-        top:FindFirstChild("Arrow").Text = open and "⌃" or "⌄"
+    local completed = false
+    local connection
+    connection = tween.Completed:Connect(function()
+        completed = true
     end)
 
-    self.Tab:RegisterItem(holder, options.Text or "dropdown")
-    self.Tab.Window.Library:_bindTooltip(holder, options.Tooltip)
-    return {
-        Set     = function(_,v) selected=v;valLbl.Text=tostring(v);safeCall(options.Callback,v) end,
-        Refresh = function(_,nv) values=nv;rebuild() end,
-        Get     = function() return selected end,
-    }
+    tween:Play()
+
+    local expiresAt = tick() + duration
+    while autoFarmEnabled and tick() < expiresAt do
+        if not rootPart.Parent then
+            break
+        end
+
+        if isNearTarget(target, 22) then
+            break
+        end
+
+        task.wait(0.05)
+    end
+
+    pcall(function()
+        tween:Cancel()
+    end)
+    if connection then
+        connection:Disconnect()
+    end
+
+    task.wait(0.1)
+    return completed or isNearTarget(target, 22)
 end
 
--- AddSlider
-function Section:AddSlider(options)
-    options = options or {}
-    local mn  = options.Min or 0
-    local mx  = options.Max or 100
-    local val = options.Default or mn
-    local row = self:_row(54, options.Text or "slider", options.Tooltip)
+local function waitForSellerReady(timeout)
+    local economyGui = playerGui:FindFirstChild("ECONOMY")
+    local expiresAt = tick() + (timeout or 8)
 
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(10,6),
-        Size                   = UDim2.new(1,-70,0,14),
-        FontFace               = FontFaceValue,
-        Text                   = options.Text or "Slider",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = row,
-    })
-    local valLbl = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.new(1,-64,0,6),
-        Size                   = UDim2.fromOffset(54,14),
-        FontFace               = FontFaceValue,
-        Text                   = tostring(val),
-        TextColor3             = Theme.Accent,
-        TextSize               = 12,
-        TextXAlignment         = Enum.TextXAlignment.Right,
-        Parent                 = row,
-    })
-
-    local bar = create("Frame", {
-        BackgroundColor3 = Theme.Outline,
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(10,30),
-        Size             = UDim2.new(1,-20,0,4),
-        Parent           = row,
-    })
-    corner(bar, 999)
-    local fill = create("Frame", {
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new((val-mn)/math.max(mx-mn,1),0,1,0),
-        Parent           = bar,
-    })
-    corner(fill, 999)
-    local knob = create("Frame", {
-        BackgroundColor3 = Theme.White,
-        BorderSizePixel  = 0,
-        AnchorPoint      = Vector2.new(0.5,0.5),
-        Position         = UDim2.new((val-mn)/math.max(mx-mn,1),0,0.5,0),
-        Size             = UDim2.fromOffset(13,13),
-        Parent           = bar,
-    })
-    corner(knob, 999)
-    create("UIStroke", {
-        Color=Theme.Accent, Transparency=0.5, Thickness=1.5,
-        ApplyStrokeMode=Enum.ApplyStrokeMode.Border, Parent=knob,
-    })
-
-    local drag = false
-    local function update(p)
-        p=math.clamp(p,0,1) ; val=math.floor(mn+(mx-mn)*p+0.5)
-        valLbl.Text=tostring(val)
-        fill.Size=UDim2.new(p,0,1,0) ; knob.Position=UDim2.new(p,0,0.5,0)
-        safeCall(options.Callback, val)
+    while autoFarmEnabled and tick() < expiresAt do
+        local clientHandler = economyGui and economyGui:FindFirstChild("ClientHandler")
+        local remoteEvent = clientHandler and clientHandler:FindFirstChild("RemoteEvent")
+        if remoteEvent then
+            return economyGui, remoteEvent
+        end
+        task.wait(0.2)
+        economyGui = playerGui:FindFirstChild("ECONOMY")
     end
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType==Enum.UserInputType.MouseButton1 then
-            drag=true ; update((input.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X)
+
+    return nil, nil
+end
+
+local function isGuiOpen(gui)
+    if not gui then
+        return false
+    end
+
+    if gui:IsA("ScreenGui") then
+        return gui.Enabled
+    end
+
+    if gui:IsA("GuiObject") then
+        return gui.Visible
+    end
+
+    return true
+end
+
+local function isProcessGuiOpen()
+    return isGuiOpen(playerGui:FindFirstChild("process"))
+end
+
+local function waitForProcessReady(timeout)
+    local expiresAt = tick() + (timeout or 6)
+    local guiSuccessCount = 0
+    local nextPulseAt = 0
+
+    while autoFarmEnabled and tick() < expiresAt do
+        if isProcessGuiOpen() then
+            guiSuccessCount = guiSuccessCount + 1
+            if guiSuccessCount >= 3 then
+                return true
+            end
+        else
+            guiSuccessCount = 0
+        end
+
+        if tick() >= nextPulseAt then
+            pulseEKey()
+            beginHoldEKey()
+            nextPulseAt = tick() + 0.45
+        end
+
+        task.wait(0.2)
+    end
+
+    return guiSuccessCount >= 2
+end
+
+local function waitForEconomyUi(timeout)
+    local expiresAt = tick() + (timeout or 6)
+
+    while autoFarmEnabled and tick() < expiresAt do
+        local economyGui = playerGui:FindFirstChild("ECONOMY")
+        local clientHandler = economyGui and economyGui:FindFirstChild("ClientHandler")
+        local remoteEvent = clientHandler and clientHandler:FindFirstChild("RemoteEvent")
+        if remoteEvent then
+            return economyGui, remoteEvent
+        end
+        task.wait(0.2)
+    end
+
+    return nil, nil
+end
+
+local function closeGui(gui)
+    if not gui then
+        return
+    end
+
+    pcall(function()
+        if gui:IsA("ScreenGui") then
+            gui.Enabled = false
+        elseif gui:IsA("GuiObject") then
+            gui.Visible = false
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
-        if drag and input.UserInputType==Enum.UserInputType.MouseMovement then
-            update((input.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X)
+end
+
+local function openSellerUiUntilReady(sellerTarget, sellerDestination, timeout)
+    local expiresAt = tick() + (timeout or 12)
+
+    while autoFarmEnabled and tick() < expiresAt do
+        local processGui = playerGui:FindFirstChild("process")
+        if isGuiOpen(processGui) then
+            closeGui(processGui)
+            task.wait(0.15)
+        end
+
+        if sellerTarget then
+            dexTeleportToTarget(sellerTarget, 4)
+        else
+            dexTeleportToCFrame(sellerDestination, 4)
+        end
+
+        task.wait(0.15)
+        beginHoldEKey()
+
+        local holdUntil = tick() + 0.9
+        while autoFarmEnabled and tick() < holdUntil do
+            local economyGui, remoteEvent = waitForEconomyUi(0.15)
+            if remoteEvent then
+                endHoldEKey()
+                return economyGui, remoteEvent
+            end
+
+            task.wait(0.05)
+        end
+
+        endHoldEKey()
+        pulseEKey()
+        task.wait(0.2)
+    end
+
+    return nil, nil
+end
+
+local function runGarbageFarm()
+    local args1 = {"FarmItemGame"}
+    game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("Main"):FireServer(unpack(args1))
+
+    task.wait(3)
+
+    local args2 = {"Stop"}
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Farm"):FireServer(unpack(args2))
+end
+
+local function getTruckDropdownItems()
+    if selectedTruckName and selectedTruckName ~= "" then
+        return {"None", selectedTruckName}
+    end
+
+    return {"None"}
+end
+
+local function getMatchingTruckNames()
+    local cachePart = workspace:FindFirstChild("CachePart")
+    if not cachePart or not localPlayer then
+        return {}
+    end
+
+    local prefix = localPlayer.Name
+    local matches = {}
+
+    for _, child in ipairs(cachePart:GetChildren()) do
+        if string.sub(child.Name, 1, #prefix) == prefix then
+            table.insert(matches, child.Name)
+        end
+    end
+
+    table.sort(matches)
+    return matches
+end
+
+local function getPlayerTruckObjectName(cacheTruckName)
+    if not localPlayer or not cacheTruckName or cacheTruckName == "None" then
+        return nil
+    end
+
+    local prefix = localPlayer.Name
+    if string.sub(cacheTruckName, 1, #prefix) == prefix then
+        local trimmed = string.sub(cacheTruckName, #prefix + 1)
+        if trimmed ~= "" then
+            return trimmed
+        end
+    end
+
+    return cacheTruckName
+end
+
+local function getSelectedTruckInstance()
+    if not localPlayer or not selectedTruckPlayerObjectName or selectedTruckPlayerObjectName == "None" then
+        return nil
+    end
+
+    return localPlayer:FindFirstChild(selectedTruckPlayerObjectName) or
+               localPlayer:WaitForChild(selectedTruckPlayerObjectName, 2)
+end
+
+local function isInventoryFullText(text)
+    text = tostring(text or "")
+    return string.find(text,
+        "คุณไม่สามารถเก็บของชิ้นนี้ได้แล้ว!", 1, true) ~=
+               nil
+end
+
+local function getNotificationDescLabel(frame)
+    if not frame or not frame:IsA("Frame") then
+        return nil
+    end
+
+    local outerTemplate = frame:FindFirstChild("Template")
+    local template2 = outerTemplate and outerTemplate:FindFirstChild("Template2")
+    local desc = template2 and template2:FindFirstChild("Desc")
+    if desc and desc:IsA("TextLabel") then
+        return desc
+    end
+
+    return nil
+end
+
+local function getNotificationHeaderLabel(frame)
+    if not frame or not frame:IsA("Frame") then
+        return nil
+    end
+
+    local outerTemplate = frame:FindFirstChild("Template")
+    local template2 = outerTemplate and outerTemplate:FindFirstChild("Template2")
+    local header = template2 and template2:FindFirstChild("Header")
+    if header and header:IsA("TextLabel") then
+        return header
+    end
+
+    return nil
+end
+
+local function watchInventoryNotificationFrame(frame)
+    local desc = getNotificationDescLabel(frame)
+    local header = getNotificationHeaderLabel(frame)
+    if not desc or not header then
+        return
+    end
+
+    local function check()
+        if header.Text == "Warning!" and isInventoryFullText(desc.Text) then
+            inventoryFullDetected = true
+        end
+    end
+
+    desc:GetPropertyChangedSignal("Text"):Connect(check)
+    header:GetPropertyChangedSignal("Text"):Connect(check)
+    task.defer(check)
+end
+
+local function attachInventoryFullWatcher(container)
+    for _, child in ipairs(container:GetChildren()) do
+        if child:IsA("Frame") then
+            watchInventoryNotificationFrame(child)
+        end
+    end
+
+    container.ChildAdded:Connect(function(child)
+        task.wait(0.1)
+        if child:IsA("Frame") then
+            watchInventoryNotificationFrame(child)
         end
     end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
+end
+
+local function startInventoryFullWatcher()
+    local function tryAttach()
+        local notifyGui = playerGui:FindFirstChild("Notification 2.0")
+        local container = notifyGui and notifyGui:FindFirstChild("Container")
+        if container then
+            attachInventoryFullWatcher(container)
+            return true
+        end
+
+        return false
+    end
+
+    if tryAttach() then
+        return
+    end
+
+    playerGui.ChildAdded:Connect(function(child)
+        if child.Name == "Notification 2.0" then
+            task.wait(0.1)
+            tryAttach()
+        end
     end)
-    return {Set=function(_,v) update((v-mn)/math.max(mx-mn,1)) end, Get=function() return val end}
 end
 
--- AddProgressBar
-function Section:AddProgressBar(options)
-    options = options or {}
-    local val = math.clamp(options.Default or 0, 0, 100)
-    local row = self:_row(50, options.Text or "progress", options.Tooltip)
+local function getFarmPackName(jobName)
+    if jobName == "Garbage" then
+        return "Garbage"
+    elseif jobName ~= "None" then
+        return currentFarmItemName
+    end
 
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(10,6),
-        Size                   = UDim2.new(1,-70,0,14),
-        FontFace               = FontFaceValue,
-        Text                   = options.Text or "Progress",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = row,
-    })
-    local pct = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.new(1,-64,0,6),
-        Size                   = UDim2.fromOffset(54,14),
-        FontFace               = FontFaceValue,
-        Text                   = val.."%",
-        TextColor3             = Theme.Accent,
-        TextSize               = 12,
-        TextXAlignment         = Enum.TextXAlignment.Right,
-        Parent                 = row,
-    })
-    local bar = create("Frame", {
-        BackgroundColor3 = Theme.Outline,
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(10,28),
-        Size             = UDim2.new(1,-20,0,4),
-        Parent           = row,
-    })
-    corner(bar, 999)
-    local fill = create("Frame", {
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(val/100,0,1,0),
-        Parent           = bar,
-    })
-    corner(fill, 999)
-    return {
-        Set = function(_,v)
-            val=math.clamp(v,0,100) ; pct.Text=val.."%"
-            tween(fill, MidTween, {Size=UDim2.new(val/100,0,1,0)})
-        end,
-        Get = function() return val end,
-    }
+    return nil
 end
 
--- ============================================================
--- CreateExecutorTab
--- ============================================================
-function Window:CreateExecutorTab(options)
-    options = options or {}
-    local exTab = self:CreateTab(options.Name or "Executor", options.Icon or "E")
-
-    local shell = create("Frame", {
-        BackgroundColor3 = Theme.Surface,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(1,0,0,0),
-        AutomaticSize    = Enum.AutomaticSize.Y,
-        Parent           = exTab.PageBody,
-    })
-    corner(shell, 10)
-    stroke(shell, Theme.Outline)
-    pad(shell, 12, 12, 12, 12)
-
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Size                   = UDim2.new(1,0,0,16),
-        FontFace               = FontFaceValue,
-        Text                   = "Script Executor",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = shell,
-    })
-    create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(0,18),
-        Size                   = UDim2.new(1,0,0,14),
-        FontFace               = FontFaceValue,
-        Text                   = options.Subtitle or "Write and run Lua scripts.",
-        TextColor3             = Theme.Muted,
-        TextSize               = 10,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        Parent                 = shell,
-    })
-
-    local edFrame = create("Frame", {
-        BackgroundColor3 = Color3.fromRGB(252,252,254),
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(0,42),
-        Size             = UDim2.new(1,0,0,260),
-        Parent           = shell,
-    })
-    corner(edFrame, 8)
-    stroke(edFrame, Theme.Outline)
-
-    local edScroll = create("ScrollingFrame", {
-        BackgroundTransparency = 1,
-        BorderSizePixel        = 0,
-        Position               = UDim2.fromOffset(8,8),
-        Size                   = UDim2.new(1,-16,1,-16),
-        CanvasSize             = UDim2.new(),
-        ScrollBarThickness     = 0,
-        Parent                 = edFrame,
-    })
-
-    local lineH = TextService:GetTextSize("Ag", 13, Enum.Font.Code, Vector2.new(1000,1000)).Y + 2
-
-    local curLine = create("Frame", {
-        BackgroundColor3       = Theme.AccentLight,
-        BackgroundTransparency = 0,
-        BorderSizePixel        = 0,
-        Position               = UDim2.fromOffset(36,0),
-        Size                   = UDim2.new(1,-36,0,lineH),
-        Parent                 = edScroll,
-    })
-    corner(curLine, 4)
-
-    local lineNums = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(0,0),
-        Size                   = UDim2.fromOffset(30,0),
-        AutomaticSize          = Enum.AutomaticSize.Y,
-        Font                   = Enum.Font.Code,
-        Text                   = "1",
-        TextColor3             = Theme.Muted,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Right,
-        TextYAlignment         = Enum.TextYAlignment.Top,
-        Parent                 = edScroll,
-    })
-
-    local codeLayer = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(38,0),
-        Size                   = UDim2.new(1,-38,0,20),
-        Font                   = Enum.Font.Code,
-        Text                   = "",
-        TextColor3             = Theme.Text,
-        TextSize               = 13,
-        TextWrapped            = false,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        TextYAlignment         = Enum.TextYAlignment.Top,
-        RichText               = true,
-        Parent                 = edScroll,
-    })
-
-    local editor = create("TextBox", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(38,0),
-        Size                   = UDim2.new(1,-38,0,20),
-        ClearTextOnFocus       = false,
-        MultiLine              = true,
-        TextWrapped            = false,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        TextYAlignment         = Enum.TextYAlignment.Top,
-        Text                   = options.DefaultText or "",
-        PlaceholderText        = "-- Write Lua here...",
-        Font                   = Enum.Font.Code,
-        TextColor3             = Theme.Text,
-        TextTransparency       = 1,
-        PlaceholderColor3      = Theme.Muted,
-        TextSize               = 13,
-        Parent                 = edScroll,
-    })
-
-    local placeholder = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(38,0),
-        Size                   = UDim2.new(1,-38,0,20),
-        Font                   = Enum.Font.Code,
-        Text                   = "-- Write Lua here...",
-        TextColor3             = Theme.Muted,
-        TextSize               = 13,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        TextYAlignment         = Enum.TextYAlignment.Top,
-        Parent                 = edScroll,
-    })
-
-    -- action row
-    local actRow = create("Frame", {
-        BackgroundTransparency = 1,
-        Position               = UDim2.fromOffset(0, 312),
-        Size                   = UDim2.new(1,0,0,30),
-        Parent                 = shell,
-    })
-    local actLayout = listLayout(actRow, 6, true)
-    actLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-
-    local function actBtn(text, width, primary)
-        local b = create("TextButton", {
-            BackgroundColor3 = primary and Theme.Accent or Theme.Surface2,
-            BorderSizePixel  = 0,
-            Size             = UDim2.fromOffset(width, 28),
-            Text             = text,
-            TextColor3       = primary and Theme.White or Theme.Text,
-            TextSize         = 12,
-            FontFace         = FontFaceValue,
-            AutoButtonColor  = false,
-            Parent           = actRow,
-        })
-        corner(b, 7)
-        if not primary then stroke(b, Theme.Outline) end
-        ripple(b)
-        b.MouseEnter:Connect(function()
-            tween(b, SnapTween, {BackgroundColor3=primary and Theme.AccentDark or Theme.Outline})
-        end)
-        b.MouseLeave:Connect(function()
-            tween(b, SnapTween, {BackgroundColor3=primary and Theme.Accent or Theme.Surface2})
-        end)
-        return b
+local function runAutoCollectBehindTruck()
+    local packName = getFarmPackName(selectedFarmJob)
+    local truckInstance = getSelectedTruckInstance()
+    if not packName or not truckInstance then
+        return
     end
 
-    local runBtn   = actBtn("▷  Run", 100, true)
-    local clearBtn = actBtn("Clear", 74, false)
-    local copyBtn  = actBtn("Copy",  74, false)
+    local args = {"post", packName, 1, truckInstance}
 
-    local output = create("TextLabel", {
-        BackgroundColor3 = Theme.Background,
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(0, 350),
-        Size             = UDim2.new(1,0,0,28),
-        FontFace         = FontFaceValue,
-        Text             = "›  Ready",
-        TextColor3       = Theme.Muted,
-        TextSize         = 11,
-        TextXAlignment   = Enum.TextXAlignment.Left,
-        Parent           = shell,
-    })
-    corner(output, 6)
-    stroke(output, Theme.Outline)
-    pad(output, 0,0,10,10)
+    game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("data"):FireServer(unpack(args))
+end
 
-    shell.Size = UDim2.new(1,0,0,390)
-
-    local function setOut(msg, color)
-        output.Text       = "›  "..msg
-        output.TextColor3 = color or Theme.Muted
+local function getPostProcessPart(jobName)
+    local aMain = workspace:FindFirstChild("AMain")
+    if not aMain or not jobName or jobName == "None" then
+        return nil
     end
 
-    local function tryCopy(text)
-        for _,fn in ipairs({rawget(getfenv(),"setclipboard"),rawget(getfenv(),"toclipboard")}) do
-            if typeof(fn)=="function" then local ok=pcall(fn,text) ; if ok then return true end end
+    local exactPackProcess = aMain:FindFirstChild(jobName .. "PackProcess", true)
+    if exactPackProcess then
+        return exactPackProcess
+    end
+
+    local exactProcess = aMain:FindFirstChild(jobName .. "Process", true)
+    if exactProcess then
+        return exactProcess
+    end
+
+    local loweredJobName = string.lower(jobName)
+    local nearestJobProcess = nil
+    local nearestJobDistance = math.huge
+    local nearestAnyProcess = nil
+    local nearestAnyDistance = math.huge
+
+    for _, descendant in ipairs(aMain:GetDescendants()) do
+        local loweredName = string.lower(descendant.Name)
+        if string.find(loweredName, "process", 1, true) then
+            local targetCFrame = getTargetTransform(descendant)
+            if targetCFrame then
+                local distance = getDistanceToTarget(descendant)
+
+                if string.find(loweredName, loweredJobName, 1, true) and distance < nearestJobDistance then
+                    nearestJobProcess = descendant
+                    nearestJobDistance = distance
+                end
+
+                if distance < nearestAnyDistance then
+                    nearestAnyProcess = descendant
+                    nearestAnyDistance = distance
+                end
+            end
+        end
+    end
+
+    return nearestJobProcess or nearestAnyProcess
+end
+
+local function findSellPromptTarget(root)
+    if not root then
+        return nil
+    end
+
+    for _, descendant in ipairs(root:GetDescendants()) do
+        if descendant:IsA("ProximityPrompt") then
+            local promptText = string.lower(tostring(descendant.ObjectText or descendant.ActionText or ""))
+            if string.find(promptText, "sell", 1, true) or string.find(promptText, "seller", 1, true) then
+                return descendant.Parent
+            end
+        end
+    end
+
+    return nil
+end
+
+local function getPostSellerPart(itemName)
+    local aMain = workspace:FindFirstChild("AMain")
+    if not aMain then
+        return nil
+    end
+
+    local exactSellerPart = aMain:FindFirstChild(" ")
+    if exactSellerPart then
+        return exactSellerPart
+    end
+
+    local directCandidates = {itemName and (itemName .. "Seller") or nil, itemName and (itemName .. "Sell") or nil,
+                              "Seller", "Sell", "Shop"}
+
+    for _, candidate in ipairs(directCandidates) do
+        if candidate then
+            local found = aMain:FindFirstChild(candidate, true)
+            if found then
+                return found
+            end
+        end
+    end
+
+    local promptTarget = findSellPromptTarget(aMain)
+    if promptTarget then
+        return promptTarget
+    end
+
+    local loweredItemName = string.lower(tostring(itemName or ""))
+    local nearestMatchingSeller = nil
+    local nearestMatchingDistance = math.huge
+    local nearestAnySeller = nil
+    local nearestAnyDistance = math.huge
+
+    for _, descendant in ipairs(aMain:GetDescendants()) do
+        local loweredName = string.lower(descendant.Name)
+        if string.find(loweredName, "sell", 1, true) or string.find(loweredName, "seller", 1, true) then
+            local targetCFrame = getTargetTransform(descendant)
+            if targetCFrame then
+                local distance = getDistanceToTarget(descendant)
+
+                if loweredItemName ~= "" and string.find(loweredName, loweredItemName, 1, true) and distance <
+                    nearestMatchingDistance then
+                    nearestMatchingSeller = descendant
+                    nearestMatchingDistance = distance
+                end
+
+                if distance < nearestAnyDistance then
+                    nearestAnySeller = descendant
+                    nearestAnyDistance = distance
+                end
+            end
+        end
+    end
+
+    return nearestMatchingSeller or nearestAnySeller
+end
+
+local function getNilInstance(name, className)
+    if not getnilinstances then
+        return nil
+    end
+
+    for _, instance in next, getnilinstances() do
+        if instance.ClassName == className and instance.Name == name then
+            return instance
+        end
+    end
+
+    return nil
+end
+
+local function getPostInvokeRemote()
+    local processGui = playerGui:FindFirstChild("process")
+    local invokeObject = processGui and processGui:FindFirstChild("Invoke")
+    if invokeObject and invokeObject:IsA("RemoteFunction") then
+        return invokeObject
+    end
+
+    local nilInvoke = getNilInstance("Invoke", "RemoteFunction")
+    if nilInvoke and nilInvoke:IsA("RemoteFunction") then
+        return nilInvoke
+    end
+
+    return nil
+end
+
+function invokePostProcess()
+    local invokeObject = getPostInvokeRemote()
+    if not invokeObject then
+        return false, nil
+    end
+
+    local ok, result = pcall(function()
+        return invokeObject:InvokeServer("Post")
+    end)
+
+    if not ok then
+        return false, nil
+    end
+
+    return result == true or result == "Post" or result == "Success", result
+end
+
+local function waitForPostProcessReady(timeout)
+    local expiresAt = tick() + (timeout or 8)
+    local successCount = 0
+    local nextPulseAt = 0
+
+    while autoFarmEnabled and tick() < expiresAt do
+        if tick() >= nextPulseAt then
+            pulseEKey()
+            beginHoldEKey()
+            nextPulseAt = tick() + 0.45
+        end
+
+        local isReady = invokePostProcess()
+        if isReady then
+            successCount = successCount + 1
+            if successCount >= 2 then
+                return true
+            end
+        else
+            successCount = 0
+        end
+        task.wait(0.25)
+    end
+
+    return false
+end
+
+local function isPostProcessStillActive()
+    local expiresAt = tick() + 1.5
+    local successCount = 0
+
+    while autoFarmEnabled and tick() < expiresAt do
+        local isActive = invokePostProcess()
+        if not isActive then
+            return false
+        end
+
+        successCount = successCount + 1
+        if successCount >= 2 then
+            return true
+        end
+
+        task.wait(0.2)
+    end
+
+    return successCount > 0
+end
+
+local function unloadTruckPostItem(itemName)
+    local truckInstance = getSelectedTruckInstance()
+    if not truckInstance or not itemName then
+        return false
+    end
+
+    local ok = pcall(function()
+        game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("data"):FireServer("end", itemName, 1,
+            truckInstance)
+    end)
+
+    return ok
+end
+
+local function parseInventoryCount(text)
+    local numberText = tostring(text or ""):match("%d+")
+    return tonumber(numberText) or 0
+end
+
+local function getInventoryScrollingRoot()
+    local inventoryGui = playerGui:FindFirstChild("Inventory1.5")
+    local frame = inventoryGui and inventoryGui:FindFirstChild("Frame")
+    local main = frame and frame:FindFirstChild("Main")
+    local scrollingFrame = main and main:FindFirstChild("ScrollingFrame")
+    return scrollingFrame and scrollingFrame:FindFirstChild("Scrolling")
+end
+
+local function getInventoryItemNode(itemName)
+    local scrollingRoot = getInventoryScrollingRoot()
+    if not scrollingRoot or not itemName or itemName == "" then
+        return nil
+    end
+
+    return scrollingRoot:FindFirstChild(itemName)
+end
+
+local function getInventoryItemCount(itemName)
+    local itemNode = getInventoryItemNode(itemName)
+    if not itemNode then
+        return 0
+    end
+
+    local allNode = itemNode:FindFirstChild("All")
+    local textLabel = allNode and allNode:FindFirstChild("TextLabel", true)
+    if textLabel and textLabel:IsA("TextLabel") then
+        local displayText = tostring(textLabel.Text or "")
+        local currentCount, maxCount = displayText:match("(%d+)%s*/%s*(%d+)")
+        if currentCount then
+            return tonumber(currentCount) or 0
+        end
+
+        if displayText:find("30", 1, true) then
+            return 30
+        end
+
+        return parseInventoryCount(displayText)
+    end
+
+    return 1
+end
+
+local function hasInventoryItem(itemName)
+    return getInventoryItemNode(itemName) ~= nil
+end
+
+local function isInventoryItemDepleted(itemName)
+    return (not hasInventoryItem(itemName)) or getInventoryItemCount(itemName) <= 0
+end
+
+local function waitForInventoryItemGone(itemName, duration, timeout)
+    local missingSince = nil
+    local expiresAt = tick() + (timeout or 20)
+
+    while autoFarmEnabled and tick() < expiresAt do
+        if isInventoryItemDepleted(itemName) then
+            missingSince = missingSince or tick()
+            if tick() - missingSince >= (duration or 2) then
+                return true
+            end
+        else
+            missingSince = nil
+        end
+
+        task.wait(0.2)
+    end
+
+    return false
+end
+
+local function getInventorySnapshot()
+    local snapshot = {}
+    local scrollingRoot = getInventoryScrollingRoot()
+    if not scrollingRoot then
+        return snapshot
+    end
+
+    for _, child in ipairs(scrollingRoot:GetChildren()) do
+        snapshot[child.Name] = getInventoryItemCount(child.Name)
+    end
+
+    return snapshot
+end
+
+local function resolvePostedSellerItemName(farmItemName, fallbackItemName, beforeSnapshot, timeout)
+    local loweredFarmItemName = string.lower(tostring(farmItemName or ""))
+    local expiresAt = tick() + (timeout or 4)
+
+    while autoFarmEnabled and tick() < expiresAt do
+        local currentSnapshot = getInventorySnapshot()
+        local bestName = nil
+        local bestDelta = 0
+        local fallbackAppeared = false
+        local relatedAlternateName = nil
+        local relatedAlternateCount = 0
+
+        for itemName, currentCount in pairs(currentSnapshot) do
+            local previousCount = beforeSnapshot[itemName] or 0
+            local delta = currentCount - previousCount
+            local loweredItemName = string.lower(itemName)
+
+            if itemName == fallbackItemName and currentCount > 0 then
+                fallbackAppeared = true
+            end
+
+            if delta > 0 and itemName ~= farmItemName then
+                local score = delta
+                if loweredFarmItemName ~= "" and string.find(loweredItemName, loweredFarmItemName, 1, true) then
+                    score = score + 1000
+                end
+                if itemName == fallbackItemName then
+                    score = score + 500
+                end
+
+                if score > bestDelta then
+                    bestDelta = score
+                    bestName = itemName
+                end
+            end
+
+            if loweredFarmItemName ~= "" and itemName ~= farmItemName and currentCount > 0 then
+                if string.find(loweredItemName, loweredFarmItemName, 1, true) then
+                    if currentCount > relatedAlternateCount then
+                        relatedAlternateCount = currentCount
+                        relatedAlternateName = itemName
+                    end
+                end
+            end
+        end
+
+        if bestName then
+            return bestName
+        end
+
+        if relatedAlternateName then
+            return relatedAlternateName
+        end
+
+        if fallbackAppeared and fallbackItemName ~= farmItemName then
+            return fallbackItemName
+        end
+
+        task.wait(0.2)
+    end
+
+    return nil
+end
+
+local function buildFallbackSellerItemName(postPart)
+    local fallbackName = tostring(postPart and postPart.Name or "")
+    fallbackName = string.gsub(fallbackName, "PackProcess$", "")
+    fallbackName = string.gsub(fallbackName, "Process$", "")
+    return fallbackName
+end
+
+local function openPostProcessInteraction(postPart)
+    for attempt = 1, 4 do
+        debugAutoFarm("openPostProcessInteraction attempt=" .. tostring(attempt) .. " target=" ..
+                          tostring(postPart and postPart.Name))
+        if dexTeleportToTarget(postPart, 10) then
+            beginHoldEKey()
+            local ready = waitForProcessReady(5.5)
+            endHoldEKey()
+
+            if ready then
+                task.wait(0.25)
+                if isProcessGuiOpen() then
+                    return true
+                end
+            end
+        else
+            debugAutoFarm("openPostProcessInteraction failed to reach target")
+        end
+
+        task.wait(0.45)
+    end
+
+    return false
+end
+
+local function confirmPostedSellerItem(farmItemName, fallbackItemName, beforeSnapshot, timeout, unloadCount)
+    local sellerItemName = resolvePostedSellerItemName(farmItemName, fallbackItemName, beforeSnapshot, timeout or 6)
+    if not sellerItemName or sellerItemName == "" or sellerItemName == farmItemName then
+        sellerItemName = nil
+    end
+
+    if sellerItemName and getInventoryItemCount(sellerItemName) > 0 then
+        return sellerItemName
+    end
+
+    if fallbackItemName and fallbackItemName ~= "" and fallbackItemName ~= farmItemName then
+        local farmItemGone = waitForInventoryItemGone(farmItemName, 0.6, 2.5)
+        local beforeCount = tonumber(beforeSnapshot and beforeSnapshot[farmItemName]) or 0
+        local currentCount = getInventoryItemCount(farmItemName)
+        local farmItemReduced = currentCount < beforeCount
+
+        if farmItemGone or farmItemReduced or (unloadCount or 0) >= 3 then
+            return fallbackItemName
+        end
+    end
+
+    return nil
+end
+
+local function sellPostedItems(itemName)
+    if not itemName or itemName == "" then
+        debugAutoFarm("sellPostedItems aborted: missing itemName")
+        return false
+    end
+
+    local moneyBeforeSell = getCurrentMoneyAmount()
+
+    debugAutoFarm("sellPostedItems start for " .. tostring(itemName))
+
+    local sellerTarget = getPostSellerPart(itemName)
+    local sellerDestination = CFrame.new(397.6261291503906, 65.84611511230469, -892.1386108398438)
+
+    if sellerTarget then
+        if not dexTeleportToTarget(sellerTarget, 10) then
+            debugAutoFarm("sellPostedItems failed: dexTeleportToTarget returned false")
+            return false
+        end
+    else
+        if not dexTeleportToCFrame(sellerDestination, 10) then
+            debugAutoFarm("sellPostedItems failed: dexTeleportToCFrame returned false")
+            return false
+        end
+    end
+
+    debugAutoFarm("sellPostedItems teleported to seller destination")
+
+    debugAutoFarm("sellPostedItems opening seller ui until ECONOMY appears")
+    local economyGui, remoteEvent = openSellerUiUntilReady(sellerTarget, sellerDestination, 12)
+
+    if not remoteEvent then
+        debugAutoFarm("sellPostedItems failed: ECONOMY remote not ready")
+        if economyGui then
+            economyGui.Enabled = false
         end
         return false
     end
 
-    -- editor logic (same as before)
-    local suggItems={} ; local activeSug=nil ; local edFocused=false
-    local lastText=editor.Text ; local internalUp=false ; local refreshQ=false
-    local blockOpen={["then"]=true,["do"]=true,["function"]=true,["repeat"]=true}
-    local autoPairs={["("]=")",["["]="]",["{"]="}",['"']='"',["\'"]="\'"  }
+    debugAutoFarm("sellPostedItems remote ready")
 
-    local function rebuildNums(text)
-        local lines,nums=1,{}
-        for _ in text:gmatch("\n") do lines=lines+1 end
-        for i=1,lines do nums[i]=tostring(i) end
-        lineNums.Text=table.concat(nums,"\n")
-    end
-    local function syncCanvas()
-        local h=math.max(editor.TextBounds.Y+8, edScroll.AbsoluteSize.Y-2)
-        editor.Size=UDim2.new(1,-38,0,h) ; codeLayer.Size=UDim2.new(1,-38,0,h)
-        lineNums.Size=UDim2.fromOffset(30,h) ; edScroll.CanvasSize=UDim2.fromOffset(0,h+4)
-        curLine.Size=UDim2.new(1,-36,0,lineH)
-    end
-    local function clearSugs()
-        for _,v in ipairs(suggItems) do v:Destroy() end
-        suggItems={} ; activeSug=nil ; -- no suggestion box in compact mode
-    end
-    local function setEdState(txt,cur)
-        internalUp=true ; editor.Text=txt ; editor.CursorPosition=cur
-        internalUp=false ; lastText=txt
-    end
-    local function insertComp(comp, prefix)
-        local cur=math.max(editor.CursorPosition,1) ; local txt=editor.Text
-        local start=math.max(cur-#prefix-1,0)
-        setEdState(txt:sub(1,start)..comp..txt:sub(cur,#txt), start+#comp+1)
-    end
-    local function insertAt(text, offset)
-        local cur=math.max(editor.CursorPosition,1) ; local t=editor.Text
-        setEdState(t:sub(1,cur-1)..text..t:sub(cur,#t), cur+(offset or #text))
+    local depletedCount = 0
+    local sellSucceeded = false
+    local timeoutAt = tick() + 45
+    while autoFarmEnabled and tick() < timeoutAt do
+        local itemExists = hasInventoryItem(itemName)
+        local itemCount = getInventoryItemCount(itemName)
+        if not itemExists or itemCount <= 0 then
+            depletedCount = depletedCount + 1
+            if depletedCount >= 4 then
+                debugAutoFarm("sellPostedItems complete: item depleted from inventory")
+                sellSucceeded = true
+                break
+            end
+        else
+            depletedCount = 0
+        end
+
+        local sellAmount = math.clamp(itemCount, 1, 10)
+
+        pcall(function()
+            remoteEvent:FireServer("Seller", itemName, sellAmount)
+        end)
+        debugAutoFarm("sellPostedItems fired Seller for " .. tostring(itemName) .. " x" .. tostring(sellAmount))
+        task.wait(0.3)
     end
 
-    local queueRefresh
-    local updateCurLine
-
-    local function refreshEd()
-        placeholder.Visible = editor.Text==""
-        codeLayer.Text = highlightLua(editor.Text=="" and " " or editor.Text)
-        rebuildNums(editor.Text)
-        syncCanvas()
+    if economyGui then
+        economyGui.Enabled = false
     end
-    queueRefresh = function()
-        if refreshQ then return end ; refreshQ=true
-        task.defer(function()
-            refreshQ=false ; refreshEd()
-            if updateCurLine then updateCurLine() end
+
+    if not sellSucceeded and isInventoryItemDepleted(itemName) then
+        sellSucceeded = true
+    end
+
+    if sellSucceeded then
+        task.spawn(function()
+            pcall(function()
+                sendSellWebhook(itemName, moneyBeforeSell)
+            end)
         end)
     end
-    updateCurLine = function()
-        local cur=math.max(editor.CursorPosition,1)
-        local before=editor.Text:sub(1,math.max(cur-1,0))
-        local lineIdx=1
-        for _ in before:gmatch("\n") do lineIdx=lineIdx+1 end
-        local y=((lineIdx-1)*lineH) - edScroll.CanvasPosition.Y
-        curLine.Position=UDim2.fromOffset(36,y)
-        curLine.Visible=edFocused
+
+    debugAutoFarm("sellPostedItems end")
+    return sellSucceeded
+end
+
+local function processFullInventory()
+    local postPart = getPostProcessPart(selectedFarmJob)
+    local farmItemName = getFarmPackName(selectedFarmJob)
+    if not postPart or not farmItemName then
+        debugAutoFarm("processFullInventory aborted: missing postPart or farmItemName")
+        inventoryFullDetected = false
+        return false
     end
 
-    local function applyAuto()
-        if internalUp then return end
-        local text=editor.Text ; local cur=editor.CursorPosition
-        if cur<2 or #text<=#lastText then lastText=text ; return end
-        local ch=text:sub(cur-2,cur-2)
-        local updT,updC=text,cur
-        if autoPairs[ch] then
-            local close=autoPairs[ch] ; local right=text:sub(cur,cur)
-            if right~=close then
-                updT=text:sub(1,cur-1)..close..text:sub(cur,#text) ; updC=cur
+    debugAutoFarm("processFullInventory start for job=" .. tostring(selectedFarmJob) .. " farmItem=" ..
+                      tostring(farmItemName))
+    autoFarmPostingInProgress = true
+
+    pcall(function()
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Farm"):FireServer("Stop")
+    end)
+
+    local fallbackSellerItemName = buildFallbackSellerItemName(postPart)
+    local sellerItemName = nil
+
+    for attempt = 1, 3 do
+        local inventorySnapshotBeforePost = getInventorySnapshot()
+        debugAutoFarm("processFullInventory GO_POST attempt=" .. tostring(attempt) .. " using=" ..
+                          tostring(postPart.Name))
+
+        if not openPostProcessInteraction(postPart) then
+            debugAutoFarm("processFullInventory post interaction did not stay open")
+            task.wait(0.5)
+        else
+            local unloadUntil = tick() + 12
+            local unloadCount = 0
+            local lastActiveAt = tick()
+
+            while autoFarmEnabled and tick() < unloadUntil do
+                if isProcessGuiOpen() then
+                    lastActiveAt = tick()
+                elseif unloadCount > 0 and (tick() - lastActiveAt) > 1 then
+                    debugAutoFarm("processFullInventory process interaction dropped before confirmation")
+                    break
+                end
+
+                if unloadTruckPostItem(farmItemName) then
+                    unloadCount = unloadCount + 1
+                    debugAutoFarm("processFullInventory unload pulse=" .. tostring(unloadCount))
+                end
+
+                task.wait(0.2)
             end
-        elseif ch=="\n" then
-            local beforeBreak=text:sub(1,cur-2):match("([^\n]*)\n?$") or ""
-            local indent=beforeBreak:match("^(%s*)") or ""
-            local lastWord=(beforeBreak:gsub("^%s+","")):match("([%a_]+)%s*$")
-            if lastWord and blockOpen[lastWord] then indent=indent.."    " end
-            updT=text:sub(1,cur-1)..indent..text:sub(cur,#text) ; updC=cur+#indent
+
+            debugAutoFarm("processFullInventory finished unload phase count=" .. tostring(unloadCount))
+
+            sellerItemName = confirmPostedSellerItem(farmItemName, fallbackSellerItemName, inventorySnapshotBeforePost,
+                6, unloadCount)
+
+            if sellerItemName then
+                debugAutoFarm("processFullInventory confirmed posted seller item=" .. tostring(sellerItemName))
+                break
+            end
+
+            debugAutoFarm("processFullInventory did not confirm post result, retrying post instead of selling")
+            task.wait(0.6)
         end
-        if updT~=editor.Text or updC~=editor.CursorPosition then setEdState(updT,updC)
-        else lastText=text end
     end
 
-    editor:GetPropertyChangedSignal("Text"):Connect(function() applyAuto() ; queueRefresh() end)
-    editor:GetPropertyChangedSignal("CursorPosition"):Connect(function() updateCurLine() end)
-    edScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-        local py=-edScroll.CanvasPosition.Y
-        editor.Position=UDim2.fromOffset(38,py) ; codeLayer.Position=UDim2.fromOffset(38,py)
-        lineNums.Position=UDim2.fromOffset(0,py) ; placeholder.Position=UDim2.fromOffset(38,py)
-        updateCurLine()
-    end)
-    editor.Focused:Connect(function() edFocused=true ; queueRefresh() ; updateCurLine() end)
-    editor.FocusLost:Connect(function() edFocused=false ; curLine.Visible=false end)
+    if not sellerItemName then
+        debugAutoFarm("processFullInventory aborted: could not confirm posted item before sell")
+        inventoryFullDetected = false
+        autoFarmPostingInProgress = false
+        return false
+    end
 
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if not edFocused then return end
-        if input.KeyCode==Enum.KeyCode.Tab then
-            insertAt("    ",4) ; queueRefresh()
+    debugAutoFarm("processFullInventory calling sellPostedItems for " .. tostring(sellerItemName))
+    sellPostedItems(sellerItemName)
+
+    inventoryFullDetected = false
+    autoFarmPostingInProgress = false
+    debugAutoFarm("processFullInventory end")
+    return true
+end
+
+local farmJobDropdown = autoFarmSection:AddDropdown("Select Job", {
+    Items = getAvailableFarmJobs(),
+    Default = "None",
+    Callback = function(value)
+        selectedFarmJob = value
+    end
+})
+
+local truckDropdown = autoCollectTruckSection:AddDropdown("Select Truck", {
+    Items = {"None"},
+    Default = "None",
+    Callback = function(value)
+        selectedTruckName = value
+        selectedTruckPlayerObjectName = getPlayerTruckObjectName(value)
+    end
+})
+
+autoCollectTruckSection:AddButton("Find Truck", {
+    Callback = function()
+        local trucks = getMatchingTruckNames()
+        local items = {"None"}
+
+        for _, truckName in ipairs(trucks) do
+            table.insert(items, truckName)
+        end
+
+        local defaultTruck = items[1]
+        if #items > 1 then
+            defaultTruck = items[2]
+            selectedTruckName = defaultTruck
+            selectedTruckPlayerObjectName = getPlayerTruckObjectName(defaultTruck)
+        else
+            selectedTruckName = "None"
+            selectedTruckPlayerObjectName = nil
+        end
+
+        truckDropdown:Refresh(items, defaultTruck)
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Truck",
+            Description = #trucks > 0 and ("Found truck: " .. selectedTruckName) or "No truck found",
+            Type = #trucks > 0 and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+local nearbyCarDropdown = carSection:AddDropdown("Select Car", {
+    Items = {"None"},
+    Default = "None",
+    Callback = function(value)
+        selectedNearbyCarDisplay = value
+    end
+})
+
+carSection:AddButton("Find Nearby Cars", {
+    Callback = function()
+        local cars = getNearbyCars(15)
+        local items = {"None"}
+        nearbyCarMap = {}
+
+        for _, entry in ipairs(cars) do
+            local label = string.format("%s [%.1f]", entry.instance.Name, entry.distance)
+            nearbyCarMap[label] = entry.instance
+            table.insert(items, label)
+        end
+
+        local defaultValue = "None"
+        if #items > 1 then
+            defaultValue = items[2]
+        end
+
+        selectedNearbyCarDisplay = defaultValue
+        nearbyCarDropdown:Refresh(items, defaultValue)
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Car",
+            Description = #cars > 0 and ("Found " .. tostring(#cars) .. " nearby car(s)") or "No nearby cars found",
+            Type = #cars > 0 and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+baccaratSection:AddButton("Open Baccarat Reader", {
+    Callback = function()
+        local state = ensureBaccaratOverlay()
+        state.Root.Visible = true
+        refreshBaccaratOverlay()
+
+        if baccaratOverlayConnection then
+            baccaratOverlayConnection:Disconnect()
+            baccaratOverlayConnection = nil
+        end
+
+        baccaratHeartbeatAccumulator = 0
+        baccaratOverlayConnection = RunService.Heartbeat:Connect(function(dt)
+            if not state.Root.Visible then
+                return
+            end
+            baccaratHeartbeatAccumulator = baccaratHeartbeatAccumulator + dt
+            if baccaratHeartbeatAccumulator >= 0.35 then
+                baccaratHeartbeatAccumulator = 0
+                refreshBaccaratOverlay()
+            end
+        end)
+    end
+})
+
+miniGameSection:AddToggle("Auto MiniGame1", {
+    Default = true,
+    Callback = function(state)
+        autoMiniGame1Enabled = state
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Minigame",
+            Description = state and "Auto MiniGame1 enabled" or "Auto MiniGame1 disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+miniGameSection:AddToggle("Auto MiniGame2", {
+    Default = true,
+    Callback = function(state)
+        autoMiniGame2Enabled = state
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Minigame",
+            Description = state and "Auto MiniGame2 enabled" or "Auto MiniGame2 disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+carSection:AddButton("Unlock Car", {
+    Callback = function()
+        local keepCarFolder = workspace:FindFirstChild("KeepCar")
+        local selectedCarName = extractCarNameFromDisplay(selectedNearbyCarDisplay)
+        local selectedCar = keepCarFolder and selectedCarName and keepCarFolder:FindFirstChild(selectedCarName)
+
+        if not selectedCar then
+            selectedCar = nearbyCarMap[selectedNearbyCarDisplay]
+        end
+
+        if not selectedCar or not selectedCar.Parent then
+            if uiReady then
+                window:Notify({
+                    Title = "Car",
+                    Description = "Selected car was not found",
+                    Type = "error",
+                    Duration = 2
+                })
+            end
+            return
+        end
+
+        local driveAttribute = findAttributeName(selectedCar, "drive")
+        local playerAttribute = findAttributeName(selectedCar, "player")
+
+        if not driveAttribute or not playerAttribute then
+            local missingName = not driveAttribute and "drive" or "player"
+            if uiReady then
+                window:Notify({
+                    Title = "Car",
+                    Description = "Missing " .. missingName,
+                    Type = "error",
+                    Duration = 2
+                })
+            end
+            return
+        end
+
+        local driveChanged = pcall(function()
+            selectedCar:SetAttribute(driveAttribute, localPlayer.Name)
+        end)
+
+        local playerChanged = pcall(function()
+            selectedCar:SetAttribute(playerAttribute, localPlayer.Name)
+        end)
+
+        local success = driveChanged and playerChanged
+        local errorMessage = "Unable to update drive/player"
+        if not driveChanged and not playerChanged then
+            errorMessage = "Unable to update drive and player"
+        elseif not driveChanged then
+            errorMessage = "Unable to update drive"
+        elseif not playerChanged then
+            errorMessage = "Unable to update player"
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Car",
+            Description = success and ("Unlocked: " .. selectedCar.Name) or errorMessage,
+            Type = success and "success" or "error",
+            Duration = 2
+        })
+    end
+})
+
+carGeneralSection:AddToggle("No Pown", {
+    Default = false,
+    Callback = function(state)
+        local ok = true
+        local changedCount = 0
+
+        if state then
+            noPownChangedCars = {}
+
+            for _, entry in ipairs(getCarsWithSpawnEnabled()) do
+                local success = pcall(function()
+                    entry.instance:SetAttribute(entry.attribute, false)
+                end)
+
+                if success then
+                    table.insert(noPownChangedCars, entry)
+                    changedCount = changedCount + 1
+                else
+                    ok = false
+                end
+            end
+        else
+            for _, entry in ipairs(noPownChangedCars) do
+                if entry.instance and entry.instance.Parent then
+                    local success = pcall(function()
+                        entry.instance:SetAttribute(entry.attribute, true)
+                    end)
+
+                    if success then
+                        changedCount = changedCount + 1
+                    else
+                        ok = false
+                    end
+                end
+            end
+
+            noPownChangedCars = {}
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Car General",
+            Description = ok and
+                (state and ("Removed spawn checks: " .. tostring(changedCount)) or
+                    ("Restored spawn checks: " .. tostring(changedCount))) or "Unable to update spawn attribute",
+            Type = ok and "success" or "error",
+            Duration = 2
+        })
+    end
+})
+
+carOptionsSection:AddTextbox("Max Speed", {
+    Default = "",
+    Placeholder = "Enter max speed",
+    Callback = function(value)
+        desiredCarMaxSpeed = value
+
+        if appliedCarStatsEnabled and appliedCarStatsTarget then
+            applyCarStatValues(appliedCarStatsTarget)
+        end
+    end
+})
+
+carOptionsSection:AddTextbox("Acceleration", {
+    Default = "",
+    Placeholder = "Enter acceleration",
+    Callback = function(value)
+        desiredCarAcceleration = value
+
+        if appliedCarStatsEnabled and appliedCarStatsTarget then
+            applyCarStatValues(appliedCarStatsTarget)
+        end
+    end
+})
+
+carOptionsSection:AddToggle("Apply Car Stats", {
+    Default = false,
+    Callback = function(state)
+        appliedCarStatsEnabled = state
+
+        local ok = true
+        local message = nil
+
+        if state then
+            local targetCar = getNearestKeepCar()
+            if not targetCar then
+                ok = false
+                message = "No nearby car found in KeepCar"
+                appliedCarStatsEnabled = false
+            else
+                local maxSpeedAttribute = findAttributeName(targetCar, "MaxSpeed")
+                local drivingTorqueAttribute = findAttributeName(targetCar, "DrivingTorque")
+                if not maxSpeedAttribute or not drivingTorqueAttribute then
+                    ok = false
+                    message = "Missing MaxSpeed or DrivingTorque attribute"
+                    appliedCarStatsEnabled = false
+                else
+                    appliedCarStatsTarget = targetCar
+                    appliedCarStatsOriginal.MaxSpeed = targetCar:GetAttribute(maxSpeedAttribute)
+                    appliedCarStatsOriginal.DrivingTorque = targetCar:GetAttribute(drivingTorqueAttribute)
+
+                    ok, message = applyCarStatValues(targetCar)
+                    if not ok then
+                        appliedCarStatsEnabled = false
+                        appliedCarStatsTarget = nil
+                        appliedCarStatsOriginal.MaxSpeed = nil
+                        appliedCarStatsOriginal.DrivingTorque = nil
+                    end
+                end
+            end
+        else
+            ok, message = restoreCarStatValues()
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Car Options",
+            Description = ok and (state and "Applied car stats to nearest car" or "Restored original car stats") or
+                (message or "Unable to update car stats"),
+            Type = ok and "success" or "error",
+            Duration = 2
+        })
+    end
+})
+
+weaponPunchSection:AddToggle("Auto Weapon/Punch", {
+    Default = false,
+    Callback = function(state)
+        autoWeaponPunchEnabled = state
+
+        if state then
+            if not autoWeaponPunchThread then
+                autoWeaponPunchThread = task.spawn(function()
+                    local remote = game:GetService("ReplicatedStorage").Remote.Weapon
+                    local httpService = game:GetService("HttpService")
+
+                    while autoWeaponPunchEnabled do
+                        task.wait(0.1)
+
+                        local char = localPlayer.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        if char and root then
+                            local hitbox = Instance.new("Part")
+                            hitbox.Size = Vector3.new(15, 15, 15)
+                            hitbox.Transparency = 1
+                            hitbox.CanCollide = false
+                            hitbox.Anchored = true
+                            hitbox.CFrame = root.CFrame
+                            hitbox.Parent = workspace
+
+                            local hitList = {}
+                            local connection
+                            connection = hitbox.Touched:Connect(function(hit)
+                                if not autoWeaponPunchEnabled then
+                                    return
+                                end
+
+                                local targetChar = hit.Parent
+                                if not targetChar or targetChar == char then
+                                    return
+                                end
+
+                                local hum = targetChar:FindFirstChild("Humanoid")
+                                if hum and hum.Health > 5 and not hitList[targetChar] then
+                                    hitList[targetChar] = true
+
+                                    local tool = char:FindFirstChildOfClass("Tool")
+                                    if tool then
+                                        pcall(function()
+                                            remote:FireServer(tool.Name, 160436, hit, root.Position, nil,
+                                                httpService:GenerateGUID(false))
+                                        end)
+                                    end
+                                end
+                            end)
+
+                            task.delay(0.2, function()
+                                if connection then
+                                    connection:Disconnect()
+                                end
+                                if hitbox and hitbox.Parent then
+                                    hitbox:Destroy()
+                                end
+                            end)
+                        end
+                    end
+
+                    autoWeaponPunchThread = nil
+                end)
+            end
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "PVP",
+            Description = state and "Auto Weapon/Punch enabled" or "Auto Weapon/Punch disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+autoFarmSection:AddToggle("Start Auto Farm", {
+    Default = false,
+    Callback = function(state)
+        autoFarmEnabled = state
+
+        if state then
+            usedFarmTargets = {}
+
+            autoCollectThread = task.spawn(function()
+                while autoFarmEnabled do
+                    if not autoFarmPostingInProgress and selectedFarmJob ~= "None" and selectedTruckName ~= "None" then
+                        runAutoCollectBehindTruck()
+                    end
+                    task.wait(1)
+                end
+                autoCollectThread = nil
+            end)
+
+            autoFarmThread = task.spawn(function()
+                while autoFarmEnabled do
+                    if selectedFarmJob == "None" then
+                        task.wait(0.25)
+                    elseif inventoryFullDetected then
+                        processFullInventory()
+                        task.wait(0.25)
+                    else
+                        local target = getNextFarmTarget()
+                        if not target then
+                            task.wait(1)
+                        else
+                            currentFarmTarget = target
+                            currentFarmItemName = target.Name
+
+                            if prepareFarmCharacter() and teleportToTarget(target) then
+                                runGarbageFarm()
+                            else
+                                task.wait(0.5)
+                            end
+
+                            task.wait(0.2)
+                        end
+                    end
+                end
+
+                local args = {"Stop"}
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Farm"):FireServer(
+                    unpack(args))
+
+                autoFarmPostingInProgress = false
+                inventoryFullDetected = false
+                releaseFarmCharacter(true)
+                currentFarmTarget = nil
+                currentFarmItemName = nil
+                autoFarmThread = nil
+            end)
+        else
+            local args = {"Stop"}
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Farm"):FireServer(unpack(args))
+
+            autoFarmPostingInProgress = false
+            inventoryFullDetected = false
+            releaseFarmCharacter(true)
+            currentFarmTarget = nil
+            currentFarmItemName = nil
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Auto Farm",
+            Description = state and ("Started farming: " .. selectedFarmJob) or "Auto farm stopped",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+autoFarmSection:AddToggle("Auto Collect Ammo Box", {
+    Default = false,
+    Callback = function(state)
+        autoAmmoBoxEnabled = state
+
+        if state then
+            autoAmmoBoxThread = task.spawn(function()
+                while autoAmmoBoxEnabled do
+                    local ammoBoxes = getAmmoBoxTargets()
+                    local collectedAny = false
+
+                    for _, ammoBox in ipairs(ammoBoxes) do
+                        if not autoAmmoBoxEnabled then
+                            break
+                        end
+
+                        if ammoBox and ammoBox.Parent and collectAmmoBox(ammoBox) then
+                            collectedAny = true
+                            task.wait(0.5)
+                        end
+                    end
+
+                    if not collectedAny then
+                        task.wait(0.5)
+                    end
+                end
+
+                autoAmmoBoxThread = nil
+            end)
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Farm",
+            Description = state and "Auto Collect Ammo Box enabled" or "Auto Collect Ammo Box disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+autoFarmSection:AddToggle("Auto Repair Power", {
+    Default = false,
+    Callback = function(state)
+        autoTransformerBoxEnabled = state
+
+        if state then
+            autoTransformerBoxThread = task.spawn(function()
+                while autoTransformerBoxEnabled do
+                    local targets = getTransformerBoxTargets()
+                    local interactedAny = false
+
+                    for _, target in ipairs(targets) do
+                        if not autoTransformerBoxEnabled then
+                            break
+                        end
+
+                        if target and target.Parent and collectTransformerBox(target) then
+                            interactedAny = true
+                            task.wait(0.75)
+                        end
+                    end
+
+                    if not interactedAny then
+                        task.wait(0.5)
+                    end
+                end
+
+                autoTransformerBoxThread = nil
+            end)
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Farm",
+            Description = state and "Auto Repair Power enabled" or "Auto Repair Power disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+playerSection:AddToggle("Enable Walk Speed", {
+    Default = false,
+    Callback = function(state)
+        walkSpeedEnabled = state
+
+        if state then
+            applyWalkSpeed()
+        else
+            local humanoid = getHumanoid()
+            if humanoid then
+                humanoid.WalkSpeed = 16
+            end
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Player",
+            Description = state and ("Walk speed enabled: " .. selectedWalkSpeed) or "Walk speed disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+playerSection:AddToggle("Inf Jump", {
+    Default = false,
+    Callback = function(state)
+        infJumpEnabled = state
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "Player",
+            Description = state and "Inf Jump enabled" or "Inf Jump disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+walkSpeedSlider = playerSection:AddSlider("Walk Speed", {
+    Min = 16,
+    Max = 200,
+    Default = 16,
+    Callback = function(value)
+        selectedWalkSpeed = value
+
+        if walkSpeedBox then
+            walkSpeedBox:Set(tostring(value))
+        end
+
+        applyWalkSpeed()
+    end
+})
+
+walkSpeedBox = playerSection:AddTextbox("Walk Speed Value", {
+    Default = tostring(selectedWalkSpeed),
+    Placeholder = "Enter walk speed",
+    Callback = function(value)
+        local numberValue = tonumber(value)
+        if not numberValue then
+            return
+        end
+
+        numberValue = math.clamp(math.floor(numberValue + 0.5), 16, 200)
+        selectedWalkSpeed = numberValue
+        walkSpeedSlider:Set(numberValue)
+    end
+})
+
+if localPlayer then
+    localPlayer.CharacterAdded:Connect(function(character)
+        local humanoid = character:WaitForChild("Humanoid", 10)
+        if humanoid and walkSpeedEnabled then
+            humanoid.WalkSpeed = selectedWalkSpeed
         end
     end)
-
-    refreshEd() ; updateCurLine()
-
-    runBtn.MouseButton1Click:Connect(function()
-        local code=editor.Text
-        if code=="" then setOut("Nothing to run") ; return end
-        if typeof(loadstring)~="function" then setOut("loadstring unavailable", Theme.Error) ; return end
-        local chunk,err=loadstring(code)
-        if not chunk then setOut(err or "Compile error", Theme.Error) ; return end
-        local ok,re=pcall(chunk)
-        if ok then setOut("Executed successfully", Theme.Success)
-        else setOut(re or "Runtime error", Theme.Error) end
-    end)
-    clearBtn.MouseButton1Click:Connect(function()
-        editor.Text="" ; setOut("Cleared")
-    end)
-    copyBtn.MouseButton1Click:Connect(function()
-        if editor.Text=="" then setOut("Nothing to copy") ; return end
-        if tryCopy(editor.Text) then setOut("Copied", Theme.Success)
-        else setOut("Clipboard unavailable", Theme.Error) end
-    end)
-
-    exTab:RegisterItem(shell, "executor script run clear copy", edFrame)
-    return exTab, {
-        Editor  = editor,
-        Output  = output,
-        SetText = function(t) editor.Text=t end,
-        GetText = function() return editor.Text end,
-    }
 end
 
-function Window:Notify(options)
-    self.Library:Notify(options)
+UserInputService.JumpRequest:Connect(function()
+    if not infJumpEnabled then
+        return
+    end
+
+    local humanoid = getHumanoid()
+    if humanoid then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+generalSection:AddToggle("Anti-AFK", {
+    Default = false,
+    Callback = function(state)
+        antiAfkEnabled = state
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "General",
+            Description = state and "Anti-AFK enabled" or "Anti-AFK disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+generalSection:AddToggle("Auto Eat Food", {
+    Default = false,
+    Callback = function(state)
+        autoEatFoodEnabled = state
+
+        if state and not autoEatFoodThread then
+            autoEatFoodThread = task.spawn(function()
+                while autoEatFoodEnabled do
+                    local hungerValue = getStatusNumber("Hunger")
+                    local brainValue = getStatusNumber("Brain")
+
+                    if hungerValue and hungerValue < 25 then
+                        pressKeyCode(Enum.KeyCode.Seven)
+                        task.wait(0.2)
+                    end
+
+                    if brainValue and brainValue < 25 then
+                        pressKeyCode(Enum.KeyCode.Eight)
+                        task.wait(0.2)
+                    end
+
+                    task.wait(0.75)
+                end
+
+                autoEatFoodThread = nil
+            end)
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "General",
+            Description = state and "Auto Eat Food enabled" or "Auto Eat Food disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+generalSection:AddToggle("Noclip", {
+    Default = false,
+    Callback = function(state)
+        noclipEnabled = state
+
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+
+        if state then
+            setCharacterNoclip(true)
+            noclipConnection = RunService.Stepped:Connect(function()
+                if noclipEnabled then
+                    setCharacterNoclip(true)
+                end
+            end)
+        else
+            setCharacterNoclip(false)
+        end
+
+        if not uiReady then
+            return
+        end
+
+        window:Notify({
+            Title = "General",
+            Description = state and "Noclip enabled" or "Noclip disabled",
+            Type = state and "success" or "warning",
+            Duration = 2
+        })
+    end
+})
+
+if localPlayer then
+    localPlayer.Idled:Connect(function()
+        if not antiAfkEnabled then
+            return
+        end
+
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+
+    localPlayer.CharacterAdded:Connect(function()
+        if noclipEnabled then
+            task.wait(0.5)
+            setCharacterNoclip(true)
+        end
+    end)
 end
 
-return Pulse
+startInventoryFullWatcher()
+startMiniGameWatcher()
+
+uiReady = true
+
+window:Notify({
+    Title = "GodWeapon",
+    Description = "Loaded tabs: Setting, Player Setting",
+    Type = "success",
+    Duration = 3
+})
